@@ -1,0 +1,8 @@
+.DS_Store
+codeclarity.io
+.build/
+.cloud/docker/config/.netrc
+.cloud/docker/config/id_rsa
+.cloud/docker/config/id_rsa.pub
+dump
+projects

@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-dispatcher
+  labels:
+    tier: backend
+  namespace: default
+spec:
+  replicas: {{ .Values.dispatcher.replicaCount }}
+  selector:
+    matchLabels:
+      app: dispatcher
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: dispatcher
+        tier: backend
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.codeclarity.repository }}:{{ .Values.codeclarity.tag }}"
+        imagePullPolicy: {{ .Values.codeclarity.pullPolicy }}
+        env:
+        - name: CODECLARITY_COMPONENT
+          value: DISPATCHER
+        - name: RABBITMQ_HOST
+          value: "amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@{{ .Values.rabbitmq.host }}:5672"
+        resources:
+          limits:
+            memory: {{ .Values.dispatcher.limits.memory }}
+            cpu: {{ .Values.dispatcher.limits.cpu }}
+          requests:
+            memory: {{ .Values.dispatcher.requests.memory }}
+            cpu: {{ .Values.dispatcher.requests.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.codeclarity.secret }}

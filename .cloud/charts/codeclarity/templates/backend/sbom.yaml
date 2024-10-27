@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-sbom
+  labels:
+    tier: backend
+  namespace: default
+spec:
+  replicas: {{ .Values.sbom.replicaCount }}
+  selector:
+    matchLabels:
+      app: sbom
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: sbom
+        tier: backend
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.codeclarity.repository }}:{{ .Values.codeclarity.tag }}"
+        imagePullPolicy: {{ .Values.codeclarity.pullPolicy }}
+        env:
+        - name: CODECLARITY_COMPONENT
+          value: SBOM
+        - name: RABBITMQ_HOST
+          value: "amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@{{ .Values.rabbitmq.host }}:5672"
+        resources:
+          limits:
+            memory: {{ .Values.sbom.limits.memory }}
+            cpu: {{ .Values.sbom.limits.cpu }}
+          requests:
+            memory: {{ .Values.sbom.requests.memory }}
+            cpu: {{ .Values.sbom.requests.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.codeclarity.secret }}

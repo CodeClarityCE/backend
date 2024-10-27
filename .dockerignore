@@ -1,0 +1,22 @@
+**/.git
+**/.gitignore
+**/.gitlab-ci.yml
+**/.gitmodules
+**/docker-compose.yml
+**/docker-compose.debug.yml
+**/Dockerfile
+**/Makefile
+**/README.md
+**/test.json
+samples
+modules/existing
+.devcontainer/
+.vscode/
+symfony/
+**/test/
+codeclarity.io
+**/dump/
+**/.build
+# **/dist
+# **/.yarn
+# **/node_modules

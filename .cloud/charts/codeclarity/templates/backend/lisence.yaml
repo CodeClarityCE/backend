@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-license
+  labels:
+    tier: backend
+  namespace: default
+spec:
+  replicas: {{ .Values.license.replicaCount }}
+  selector:
+    matchLabels:
+      app: license
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: license
+        tier: backend
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.codeclarity.repository }}:{{ .Values.codeclarity.tag }}"
+        imagePullPolicy: {{ .Values.codeclarity.pullPolicy }}
+        env:
+        - name: CODECLARITY_COMPONENT
+          value: LICENSE
+        - name: RABBITMQ_HOST
+          value: "amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@{{ .Values.rabbitmq.host }}:5672"
+        resources:
+          limits:
+            memory: {{ .Values.license.limits.memory }}
+            cpu: {{ .Values.license.limits.cpu }}
+          requests:
+            memory: {{ .Values.license.requests.memory }}
+            cpu: {{ .Values.license.requests.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.codeclarity.secret }}

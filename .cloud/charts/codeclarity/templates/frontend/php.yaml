@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-php
+  labels:
+    tier: backend
+  namespace: default
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: php
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: php
+        tier: backend
+    spec:
+      containers:
+      - name: php
+        image: ceherzog/app_php
+        imagePullPolicy: {{ .Values.frontend.pullPolicy }}
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://postgres:{{ .Values.auth.password }}@codeclarity-postgresql.default.svc.cluster.local:5432/{{ .Values.auth.database }}?serverVersion=15"
+        - name: MESSENGER_TRANSPORT_DSN
+          value: "amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@{{ .Values.rabbitmq.host }}:5672/%2F/messages"
+        resources:
+          limits:
+            memory: {{ .Values.frontend.limits.memory }}
+            cpu: {{ .Values.frontend.limits.cpu }}
+          requests:
+            memory: {{ .Values.frontend.requests.memory }}
+            cpu: {{ .Values.frontend.requests.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.frontend.secret }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: php
+  labels:
+    tier: backend
+spec:
+  selector:
+    app: php
+    tier: backend
+  ports:
+  - protocol: TCP
+    port: 9000

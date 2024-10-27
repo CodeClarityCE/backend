@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-downloader
+  labels:
+    tier: backend
+  namespace: default
+spec:
+  replicas: {{ .Values.downloader.replicaCount }}
+  selector:
+    matchLabels:
+      app: downloader
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: downloader
+        tier: backend
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.codeclarity.repository }}:{{ .Values.codeclarity.tag }}"
+        imagePullPolicy: {{ .Values.codeclarity.pullPolicy }}
+        env:
+        - name: CODECLARITY_COMPONENT
+          value: DOWNLOADER
+        - name: RABBITMQ_HOST
+          value: "amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@{{ .Values.rabbitmq.host }}:5672"
+        resources:
+          limits:
+            memory: {{ .Values.downloader.limits.memory }}
+            cpu: {{ .Values.downloader.limits.cpu }}
+          requests:
+            memory: {{ .Values.downloader.requests.memory }}
+            cpu: {{ .Values.downloader.requests.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.codeclarity.secret }}

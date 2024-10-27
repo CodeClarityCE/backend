@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-caddy
+  labels: 
+    tier: backend
+  namespace: default
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: caddy
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: caddy
+        tier: backend
+    spec:
+      containers:
+      - name: caddy
+        image: ceherzog/app_caddy
+        imagePullPolicy: {{ .Values.frontend.pullPolicy }}
+        env:
+        - name: SERVER_NAME
+          value: "{{ .Values.frontend.servername }}"
+        resources:
+          limits:
+            memory: {{ .Values.frontend.limits.memory }}
+            cpu: {{ .Values.frontend.limits.cpu }}
+          requests:
+            memory: {{ .Values.frontend.requests.memory }}
+            cpu: {{ .Values.frontend.requests.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.frontend.secret }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: caddy
+  labels:
+    tier: backend
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: caddy
+    tier: backend
+  ports:
+  - port: 80
+    name: "80"
+    targetPort: 80
+    nodePort: 30080
+  - port: 443
+    name: "443-tcp"
+    protocol: TCP
+    targetPort: 443
+    nodePort: 30443
+  - port: 443
+    name: "443-udp"
+    protocol: UDP
+    targetPort: 443
+    nodePort: 30443

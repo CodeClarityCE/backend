@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-patching
+  labels:
+    tier: backend
+  namespace: default
+spec:
+  replicas: {{ .Values.patching.replicaCount }}
+  selector:
+    matchLabels:
+      app: patching
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: patching
+        tier: backend
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.codeclarity.repository }}:{{ .Values.codeclarity.tag }}"
+        imagePullPolicy: {{ .Values.codeclarity.pullPolicy }}
+        env:
+        - name: CODECLARITY_COMPONENT
+          value: PATCHING
+        - name: RABBITMQ_HOST
+          value: "amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@{{ .Values.rabbitmq.host }}:5672"
+        resources:
+          limits:
+            memory: {{ .Values.patching.limits.memory }}
+            cpu: {{ .Values.patching.limits.cpu }}
+          requests:
+            memory: {{ .Values.patching.requests.memory }}
+            cpu: {{ .Values.patching.requests.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.codeclarity.secret }}

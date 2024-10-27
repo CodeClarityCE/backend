@@ -1,0 +1,101 @@
+replicaCount: 1
+
+## DATABASE CONFIG
+rabbitmq:
+  user: blabla
+  password: blabla
+  host: rabbitmq
+
+global:
+  postgresql:
+    auth:
+      postgresPassword: blabla
+auth:
+  postgresPassword: blabla
+  username: blabla
+  password: blabla
+  database: postgres
+
+## CODECLARITY CONFIG
+codeclarity:
+  repository: ceherzog/codeclarity.io
+  tag: "latest"
+  pullPolicy: Always
+  secret: regcred
+
+api:
+  repository: ceherzog/api
+  tag: "latest"
+  pullPolicy: Always
+  limits:
+    memory: "128Mi"
+    cpu: "25m"
+  requests:
+    memory: "128Mi"
+    cpu: "25m"
+  secret: regcred
+
+frontend:
+  servername: v2.codeclarity.dev
+  pullPolicy: Always
+  limits:
+    memory: "512Mi"
+    cpu: "150m"
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  secret: regcred
+
+dispatcher:
+  replicaCount: 1
+  limits:
+    memory: "512Mi"
+    cpu: "100m"
+  requests:
+    memory: "128Mi"
+    cpu: "25m"
+
+sbom:
+  replicaCount: 1
+  limits:
+    memory: "128Mi"
+    cpu: "25m"
+  requests:
+    memory: "128Mi"
+    cpu: "25m"
+
+downloader:
+  replicaCount: 1
+  limits:
+    memory: "128Mi"
+    cpu: "25m"
+  requests:
+    memory: "128Mi"
+    cpu: "25m"
+
+license:
+  replicaCount: 1
+  limits:
+    memory: "128Mi"
+    cpu: "25m"
+  requests:
+    memory: "128Mi"
+    cpu: "25m"
+
+vulnerability:
+  replicaCount: 1
+  limits:
+    memory: "128Mi"
+    cpu: "25m"
+  requests:
+    memory: "128Mi"
+    cpu: "25m"
+
+patching:
+  replicaCount: 1
+  limits:
+    memory: "128Mi"
+    cpu: "25m"
+  requests:
+    memory: "128Mi"
+    cpu: "25m"

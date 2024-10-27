@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-messenger
+  labels:
+    tier: backend
+  namespace: default
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: messenger
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: messenger
+        tier: backend
+    spec:
+      containers:
+      - name: messenger
+        image: ceherzog/app_php
+        imagePullPolicy: {{ .Values.frontend.pullPolicy }}
+        command: ["php"]
+        args: ["bin/console", "messenger:consume", "-vv", "dispatcher_symfony"]
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://postgres:{{ .Values.auth.password }}@codeclarity-postgresql.default.svc.cluster.local:5432/{{ .Values.auth.database }}?serverVersion=15"
+        - name: MESSENGER_TRANSPORT_DSN
+          value: "amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@{{ .Values.rabbitmq.host }}:5672/%2F/messages"
+        resources:
+          limits:
+            memory: {{ .Values.frontend.limits.memory }}
+            cpu: {{ .Values.frontend.limits.cpu }}
+          requests:
+            memory: {{ .Values.frontend.requests.memory }}
+            cpu: {{ .Values.frontend.requests.cpu }}
+      imagePullSecrets:
+      - name: {{ .Values.frontend.secret }}

@@ -1,0 +1,21 @@
+go 1.22.0
+
+toolchain go1.23.1
+
+use (
+	.
+	./plugins/js-license
+	./plugins/js-patching
+
+	./plugins/js-sbom
+	./plugins/js-vuln-finder
+
+	./services/dispatcher
+	./services/downloader
+	./services/knowledge
+
+	./utilities/amqp-helper
+	./utilities/db-helper
+	./utilities/node-semver
+	./utilities/types
+)

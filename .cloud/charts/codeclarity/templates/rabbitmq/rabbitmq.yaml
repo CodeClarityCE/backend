@@ -1,0 +1,20 @@
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: rabbitmq
+spec:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi
+    limits:
+  #     cpu: 2
+      memory: 2Gi
+  rabbitmq:
+    additionalConfig: |
+      default_user={{ .Values.rabbitmq.user }}
+      default_pass={{ .Values.rabbitmq.password }}
+  # persistence:
+  #     storageClassName: do-block-storage
+  #     storage: "15Gi"

@@ -1,0 +1,9 @@
+dependencies:
+- name: postgresql
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 12.5.8
+- name: rabbitmq-cluster-operator
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 3.4.2
+digest: sha256:f75ee9febd5979fe0756aa305e3076a1e6ad90373f2c134186505bc6a5cdfcc6
+generated: "2023-06-25T11:45:27.225208+02:00"
