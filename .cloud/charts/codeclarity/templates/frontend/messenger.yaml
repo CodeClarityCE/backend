@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: messenger
-        image: ceherzog/app_php
+        image: codeclarityce/app_php
         imagePullPolicy: {{ .Values.frontend.pullPolicy }}
         command: ["php"]
         args: ["bin/console", "messenger:consume", "-vv", "dispatcher_symfony"]

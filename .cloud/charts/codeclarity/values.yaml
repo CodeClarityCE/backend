@@ -18,13 +18,13 @@ auth:
 
 ## CODECLARITY CONFIG
 codeclarity:
-  repository: ceherzog/codeclarity.io
+  repository: codeclarityce/codeclarity.io
   tag: "latest"
   pullPolicy: Always
   secret: regcred
 
 api:
-  repository: ceherzog/api
+  repository: codeclarityce/api
   tag: "latest"
   pullPolicy: Always
   limits:

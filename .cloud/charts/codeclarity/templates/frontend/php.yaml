@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: php
-        image: ceherzog/app_php
+        image: codeclarityce/app_php
         imagePullPolicy: {{ .Values.frontend.pullPolicy }}
         env:
         - name: DATABASE_URL

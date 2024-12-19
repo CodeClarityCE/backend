@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: caddy
-        image: ceherzog/app_caddy
+        image: codeclarityce/app_caddy
         imagePullPolicy: {{ .Values.frontend.pullPolicy }}
         env:
         - name: SERVER_NAME
