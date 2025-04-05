@@ -1,42 +1,42 @@
 [submodule "service-dispatcher"]
 	path = services/dispatcher
-	url = git@github.com:CodeClarityCE/service-dispatcher.git
+	url = https://github.com/CodeClarityCE/service-dispatcher.git
 [submodule "service-notifier"]
 	path = services/notifier
-	url = git@github.com:CodeClarityCE/service-notifier.git
+	url = https://github.com/CodeClarityCE/service-notifier.git
 [submodule "service-project-downloader"]
 	path = services/downloader
-	url = git@github.com:CodeClarityCE/service-project-downloader.git
+	url = https://github.com/CodeClarityCE/service-project-downloader.git
 [submodule "service-knowledge"]
 	path = services/knowledge
-	url = git@github.com:CodeClarityCE/service-knowledge.git
+	url = https://github.com/CodeClarityCE/service-knowledge.git
 [submodule "pluginsbom-javascript"]
 	path = plugins/js-sbom
-	url = git@github.com:CodeClarityCE/plugin-sbom-javascript.git
+	url = https://github.com/CodeClarityCE/plugin-sbom-javascript.git
 [submodule "plugin-sca-vuln-finder"]
 	path = plugins/js-vuln-finder
-	url = git@github.com:CodeClarityCE/plugin-sca-vuln-finder.git
+	url = https://github.com/CodeClarityCE/plugin-sca-vuln-finder.git
 [submodule "plugin-sca-license"]
 	path = plugins/js-license
-	url = git@github.com:CodeClarityCE/plugin-sca-license.git
+	url = https://github.com/CodeClarityCE/plugin-sca-license.git
 [submodule "plugin-sca-patching"]
 	path = plugins/js-patching
-	url = git@github.com:CodeClarityCE/plugin-sca-patching.git
+	url = https://github.com/CodeClarityCE/plugin-sca-patching.git
 [submodule "utility-dbhelper"]
 	path = utilities/db-helper
-	url = git@github.com:CodeClarityCE/utility-dbhelper.git
+	url = https://github.com/CodeClarityCE/utility-dbhelper.git
 [submodule "utility-node-semver"]
 	path = utilities/node-semver
-	url = git@github.com:CodeClarityCE/utility-node-semver.git
+	url = https://github.com/CodeClarityCE/utility-node-semver.git
 [submodule "utility-amqp-helper"]
 	path = utilities/amqp-helper
-	url = git@github.com:CodeClarityCE/utility-amqp-helper.git
+	url = https://github.com/CodeClarityCE/utility-amqp-helper.git
 [submodule "utility-types"]
 	path = utilities/types
-	url = git@github.com:CodeClarityCE/utility-types.git
+	url = https://github.com/CodeClarityCE/utility-types.git
 [submodule "plugins/plugin-codeql"]
 	path = plugins/codeql
-	url = git@github.com:CodeClarityCE/plugin-codeql.git
+	url = https://github.com/CodeClarityCE/plugin-codeql.git
 [submodule "services/packageFollower"]
 	path = services/packageFollower
-	url = git@github.com:CodeClarityCE/service-package-follower.git
+	url = https://github.com/CodeClarityCE/service-package-follower.git
