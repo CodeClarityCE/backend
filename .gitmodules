@@ -40,3 +40,6 @@
 [submodule "services/packageFollower"]
 	path = services/packageFollower
 	url = https://github.com/CodeClarityCE/service-package-follower.git
+[submodule "plugins/php-sbom"]
+	path = plugins/php-sbom
+	url = https://github.com/CodeClarityCE/plugin-sbom-php.git
