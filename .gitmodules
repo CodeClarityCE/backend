@@ -40,3 +40,6 @@
 [submodule "services/packageFollower"]
 	path = services/packageFollower
 	url = https://github.com/CodeClarityCE/service-package-follower.git
+[submodule "services/scheduler"]
+	path = services/scheduler
+	url = git@github.com:CodeClarityCE/service-scheduler.git
