@@ -12,6 +12,7 @@ use (
 	./services/dispatcher
 	./services/downloader
 	./services/knowledge
+	./services/scheduler
 
 	./utilities/amqp-helper
 	./utilities/db-helper
