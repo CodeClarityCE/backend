@@ -25,11 +25,12 @@ func main() {
 	}
 
 	if *know {
-		if action == "setup" {
+		switch action {
+		case "setup":
 			knowledge.Setup(false)
-		} else if action == "update" {
+		case "update":
 			knowledge.Update()
-		} else {
+		default:
 			flag.Usage()
 			os.Exit(0)
 		}
