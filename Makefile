@@ -12,16 +12,16 @@ build-prod: ## Builds de production Docker images
 
 build: ## Builds the Docker images
 	@cd ../.cloud/scripts && sh build.sh \
-	"service-package-follower service-notifier service-downloader service-dispatcher service-scheduler plugin-codeql plugin-js-license plugin-js-patching plugin-js-sbom plugin-js-vuln-finder"
+	"service-package-follower service-notifier service-downloader service-dispatcher service-scheduler plugin-codeql plugin-js-license plugin-js-patching plugin-js-sbom plugin-js-vuln-finder plugin-php-sbom"
 
 up: ## Starts the Docker images
 	@cd ../.cloud/scripts && sh up.sh \
-	"service-package-follower service-notifier service-downloader service-dispatcher service-scheduler plugin-codeql plugin-js-license plugin-js-patching plugin-js-sbom plugin-js-vuln-finder"
+	"service-package-follower service-notifier service-downloader service-dispatcher service-scheduler plugin-codeql plugin-js-license plugin-js-patching plugin-js-sbom plugin-js-vuln-finder plugin-php-sbom"
 
 down: ## Stops the Docker images
 	@cd ../.cloud/scripts && sh down.sh \
-	"service-package-follower service-notifier service-downloader service-dispatcher service-scheduler plugin-codeql plugin-js-license plugin-js-patching plugin-js-sbom plugin-js-vuln-finder"
+	"service-package-follower service-notifier service-downloader service-dispatcher service-scheduler plugin-codeql plugin-js-license plugin-js-patching plugin-js-sbom plugin-js-vuln-finder plugin-php-sbom"
 
 logs: ## Display logs
 	@cd ../.cloud/scripts && sh logs.sh \
-	"service-package-follower service-notifier service-downloader service-dispatcher service-scheduler plugin-codeql plugin-js-license plugin-js-patching plugin-js-sbom plugin-js-vuln-finder"
+	"service-package-follower service-notifier service-downloader service-dispatcher service-scheduler plugin-codeql plugin-js-license plugin-js-patching plugin-js-sbom plugin-js-vuln-finder plugin-php-sbom"

@@ -8,6 +8,7 @@ use (
 
 	./plugins/js-sbom
 	./plugins/js-vuln-finder
+	./plugins/php-sbom
 
 	./services/dispatcher
 	./services/downloader
