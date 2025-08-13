@@ -46,6 +46,3 @@
 [submodule "plugins/license-finder"]
 	path = plugins/license-finder
 	url = https://github.com/CodeClarityCE/plugin-sca-license.git
-[submodule "plugin-sca-license"]
-	path = plugin-sca-license
-	url = https://github.com/CodeClarityCE/plugin-sca-license.git
