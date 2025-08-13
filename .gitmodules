@@ -16,9 +16,6 @@
 [submodule "plugin-sca-vuln-finder"]
 	path = plugins/vuln-finder
 	url = https://github.com/CodeClarityCE/plugin-sca-vuln-finder.git
-[submodule "plugin-sca-license"]
-	path = plugins/license-finder
-	url = https://github.com/CodeClarityCE/plugin-sca-license.git
 [submodule "plugin-sca-patching"]
 	path = plugins/js-patching
 	url = https://github.com/CodeClarityCE/plugin-sca-patching.git
@@ -46,3 +43,9 @@
 [submodule "plugins/php-sbom"]
 	path = plugins/php-sbom
 	url = https://github.com/CodeClarityCE/plugin-sbom-php
+[submodule "plugins/license-finder"]
+	path = plugins/license-finder
+	url = https://github.com/CodeClarityCE/plugin-sca-license.git
+[submodule "plugin-sca-license"]
+	path = plugin-sca-license
+	url = https://github.com/CodeClarityCE/plugin-sca-license.git
