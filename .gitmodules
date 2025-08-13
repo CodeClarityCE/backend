@@ -17,7 +17,7 @@
 	path = plugins/vuln-finder
 	url = https://github.com/CodeClarityCE/plugin-sca-vuln-finder.git
 [submodule "plugin-sca-license"]
-	path = plugins/js-license
+	path = plugins/license-finder
 	url = https://github.com/CodeClarityCE/plugin-sca-license.git
 [submodule "plugin-sca-patching"]
 	path = plugins/js-patching
