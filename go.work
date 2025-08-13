@@ -1,14 +1,15 @@
 go 1.24.3
+
 toolchain go1.24.1
 
 use (
 	.
-	./plugins/js-license
+	./plugins/license-finder
 	./plugins/js-patching
 
 	./plugins/js-sbom
-	./plugins/js-vuln-finder
 	./plugins/php-sbom
+	./plugins/vuln-finder
 
 	./services/dispatcher
 	./services/downloader
