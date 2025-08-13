@@ -14,7 +14,7 @@
 	path = plugins/js-sbom
 	url = https://github.com/CodeClarityCE/plugin-sbom-javascript.git
 [submodule "plugin-sca-vuln-finder"]
-	path = plugins/js-vuln-finder
+	path = plugins/vuln-finder
 	url = https://github.com/CodeClarityCE/plugin-sca-vuln-finder.git
 [submodule "plugin-sca-license"]
 	path = plugins/js-license
