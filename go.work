@@ -4,6 +4,7 @@ toolchain go1.24.1
 
 use (
 	.
+	./plugins/codeql
 	./plugins/license-finder
 	./plugins/js-patching
 
@@ -14,6 +15,8 @@ use (
 	./services/dispatcher
 	./services/downloader
 	./services/knowledge
+	./services/notifier
+	./services/packageFollower
 	./services/scheduler
 
 	./utilities/amqp-helper
