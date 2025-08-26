@@ -5,10 +5,10 @@ toolchain go1.24.1
 use (
 	.
 	./plugins/codeql
-	./plugins/license-finder
 	./plugins/js-patching
 
 	./plugins/js-sbom
+	./plugins/license-finder
 	./plugins/php-sbom
 	./plugins/vuln-finder
 
