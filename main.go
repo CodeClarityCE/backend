@@ -29,7 +29,7 @@ func main() {
 		case "setup":
 			knowledge.Setup(false)
 		case "update":
-			knowledge.Update()
+			knowledge.UpdateWithSetup()
 		default:
 			flag.Usage()
 			os.Exit(0)

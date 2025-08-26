@@ -14,11 +14,8 @@
 	path = plugins/js-sbom
 	url = https://github.com/CodeClarityCE/plugin-sbom-javascript.git
 [submodule "plugin-sca-vuln-finder"]
-	path = plugins/js-vuln-finder
+	path = plugins/vuln-finder
 	url = https://github.com/CodeClarityCE/plugin-sca-vuln-finder.git
-[submodule "plugin-sca-license"]
-	path = plugins/js-license
-	url = https://github.com/CodeClarityCE/plugin-sca-license.git
 [submodule "plugin-sca-patching"]
 	path = plugins/js-patching
 	url = https://github.com/CodeClarityCE/plugin-sca-patching.git
@@ -43,3 +40,12 @@
 [submodule "services/scheduler"]
 	path = services/scheduler
 	url = git@github.com:CodeClarityCE/service-scheduler.git
+[submodule "plugins/php-sbom"]
+	path = plugins/php-sbom
+	url = https://github.com/CodeClarityCE/plugin-sbom-php
+[submodule "plugins/license-finder"]
+	path = plugins/license-finder
+	url = https://github.com/CodeClarityCE/plugin-sca-license.git
+[submodule "utilities/boilerplates"]
+	path = utilities/boilerplates
+	url = https://github.com/CodeClarityCE/utility-boilerplates.git
