@@ -46,3 +46,6 @@
 [submodule "plugins/license-finder"]
 	path = plugins/license-finder
 	url = https://github.com/CodeClarityCE/plugin-sca-license.git
+[submodule "utilities/boilerplates"]
+	path = utilities/boilerplates
+	url = https://github.com/CodeClarityCE/utility-boilerplates.git
