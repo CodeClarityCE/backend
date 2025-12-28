@@ -4,6 +4,7 @@ toolchain go1.24.1
 
 use (
 	.
+	./cli
 	./plugins/codeql
 	./plugins/js-patching
 
