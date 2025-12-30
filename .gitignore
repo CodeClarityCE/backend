@@ -6,4 +6,4 @@ codeclarity.io
 .cloud/docker/config/id_rsa.pub
 dump
 projects
-cli/bin/*
+bin/*
