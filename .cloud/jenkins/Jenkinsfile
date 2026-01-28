@@ -1,50 +1,60 @@
 pipeline {
-    // Run on an agent where we want to use Go
-    // agent { docker { image 'golang:1.20-alpine' } }
     agent { label 'codeclarity' }
 
-    // Ensure the desired Go version is installed for all stages,
-    // using the name defined in the Global Tool Configuration
-    tools { go 'Go 1.20.5' }
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    tools {
+        go 'Go 1.24'
+    }
 
     environment {
-        GOPRIVATE = 'github.com/CodeClarityCE/utility-types,github.com/CodeClarityCE/utility-spdx-license-matcher,github.com/CodeClarityCE/utility-node-semver,github.com/CodeClarityCE/utility-dbhelper,github.com/CodeClarityCE/utility-amqp-helper,github.com/CodeClarityCE/service-knowledge,github.com/CodeClarityCE/service-dispatcher,github.com/CodeClarityCE/service-project-downloader,github.com/CodeClarityCE/plugin-sca-license,github.com/CodeClarityCE/plugin-sca-patching,github.com/CodeClarityCE/plugin-sca-vuln-finder,github.com/CodeClarityCE/plugin-sbom-javascript'
-        DOCKERHUB_CREDENTIALS=credentials('dockerhub')
+        GOPRIVATE = 'github.com/CodeClarityCE/*'
     }
-    stages {
-        stage('Login') {
 
-			steps {
-				sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-			}
-		}
-        stage('Build') {
+    stages {
+        stage('Setup') {
             steps {
-                // Output will be something like "go version go1.19 darwin/arm64"
-                sh 'docker system prune -af'
                 sh 'go version'
-                sh 'cp ~/.netrc .cloud/docker/config'
                 sh 'git submodule update --init --recursive'
-	            // sh 'GOOS=linux go build -o .build/codeclarity.io .'
-                // sh 'GOOS=windows GOARCH=amd64 go build -o .build/codeclarity-mac .'
-                // sh 'GOOS=windows GOARCH=arm64 go build -o .build/codeclarity-mac-arm64 .'
-                // sh 'GOOS=windows GOARCH=amd64 go build -o .build/codeclarity-windows.exe .'
-                // sh 'GOOS=linux GOARCH=amd64 go build -o .build/codeclarity-linux .'
-                sh 'make build-jenkins'
             }
         }
-        // stage('Test') {
-        //     steps {
-        //         // Output will be something like "go version go1.19 darwin/arm64"
-        //         sh 'make'
-        //     }
-        // }
-        // stage('Deploy') {
-        //     steps {
-        //         // Output will be something like "go version go1.19 darwin/arm64"
-        //         // sh 'make push'
-        //         sh 'docker push codeclarityce/codeclarity.io:latest'
-        //     }
-        // }
+
+        stage('Dependencies') {
+            steps {
+                sh 'go mod download'
+                sh 'go mod tidy'
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                sh 'go fmt ./...'
+                sh 'go vet ./...'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'go test -v ./...'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'go build -o bin/codeclarity .'
+                echo "Build successful"
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "Build failed for CodeClarity CLI"
+        }
     }
 }
