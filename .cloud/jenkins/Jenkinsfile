@@ -1,3 +1,26 @@
+// Runs `script` in the pinned Go toolchain instead of whatever the agent host
+// has. Keep the image in sync with the service Dockerfiles and go.mod
+// (go 1.27.1). Plain `docker run` rather than `agent { docker }`, which needs
+// the Docker Pipeline plugin (up for adoption, deliberately not used). The
+// container runs as the Jenkins uid; HOME and the Go caches live in the
+// workspace's @tmp sibling. The CLI builds in go.work mode against the checked-out
+// submodules, so GOWORK is left on.
+def inGo(String script) {
+    withEnv(["CI_SCRIPT=${script}"]) {
+        sh '''
+            mkdir -p "$WORKSPACE@tmp/ci-home"
+            docker run --rm -u "$(id -u):$(id -g)" \\
+                -v "$WORKSPACE:$WORKSPACE" -v "$WORKSPACE@tmp:$WORKSPACE@tmp" -w "$WORKSPACE" \\
+                -e HOME="$WORKSPACE@tmp/ci-home" \\
+                -e GOCACHE="$WORKSPACE@tmp/go-build" \\
+                -e GOMODCACHE="$WORKSPACE@tmp/go-mod" \\
+                -e GOTOOLCHAIN=local -e GOPRIVATE='github.com/CodeClarityCE/*' \\
+                golang:1.27.1@sha256:3680233e3204827fbdc66088528ae6d4b3d034f51d03a99d454f6de034888244 \\
+                sh -ec "$CI_SCRIPT"
+        '''
+    }
+}
+
 pipeline {
     agent { label 'codeclarity' }
 
@@ -8,41 +31,41 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
-    environment {
-        GOPRIVATE = 'github.com/CodeClarityCE/*'
-    }
-
     stages {
         stage('Setup') {
             steps {
-                sh 'go version'
                 sh 'git submodule update --init --recursive'
             }
         }
 
         stage('Dependencies') {
             steps {
-                sh 'go mod download'
-                sh 'go mod tidy'
+                inGo('go mod download')
+                // Fail on an untidy go.mod/go.sum instead of rewriting it.
+                inGo('go mod tidy -diff')
             }
         }
 
         stage('Lint') {
             steps {
-                sh 'go fmt ./...'
-                sh 'go vet ./...'
+                // Only the CLI module's own files: `gofmt -l .` would recurse
+                // into the plugin/service/utility submodules, which are
+                // checked by their own pipelines.
+                inGo('test -z "$(gofmt -l main.go cmd internal)" || { gofmt -l main.go cmd internal; echo "Run gofmt -w on the files above"; exit 1; }')
+                inGo('go vet ./...')
             }
         }
 
         stage('Test') {
             steps {
-                sh 'go test -v ./...'
+                inGo('go test -v ./...')
+                inGo('go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...')
             }
         }
 
         stage('Build') {
             steps {
-                sh 'go build -o bin/codeclarity .'
+                inGo('go build -o bin/codeclarity .')
                 echo "Build successful"
             }
         }
