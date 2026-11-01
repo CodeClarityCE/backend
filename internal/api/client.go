@@ -94,7 +94,7 @@ type apiResponseWrapper struct {
 }
 
 // doRequest performs an HTTP request
-func (c *Client) doRequest(method, path string, body interface{}, result interface{}) error {
+func (c *Client) doRequest(method, path string, body any, result any) error {
 	var bodyReader io.Reader
 	if body != nil {
 		jsonBody, err := json.Marshal(body)

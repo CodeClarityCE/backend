@@ -41,7 +41,7 @@ dependencies, and licenses.`,
 		format, _ := cmd.Root().Flags().GetString("output")
 		if format == "json" || format == "yaml" {
 			// Output as structured data with defaults
-			summary := map[string]interface{}{
+			summary := map[string]any{
 				"vulnerabilities": map[string]int{
 					"total":    0,
 					"critical": 0,

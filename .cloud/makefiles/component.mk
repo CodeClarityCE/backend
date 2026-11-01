@@ -11,6 +11,26 @@
 
 REPOSITORY = codeclarityce/$(KIND)-$(NAME)
 
+# Map singular KIND to Docker directory name (plural) for Dockerfile ARG
+ifeq ($(KIND),plugin)
+  DOCKER_KIND = plugins
+else ifeq ($(KIND),service)
+  DOCKER_KIND = services
+else
+  DOCKER_KIND = $(KIND)
+endif
+
+# BUILD_CONTEXT defaults to . (submodule/CI mode)
+# Override with ../../ to use backend workspace (local mode)
+BUILD_CONTEXT ?= .
+
+# PLATFORM can be set per-component to force a target architecture
+# (e.g. PLATFORM = linux/amd64 for CodeQL which only supports x86)
+PLATFORM ?=
+
+# Actual directory name (may differ from NAME, e.g. packageFollower vs package-follower)
+DIRNAME := $(notdir $(CURDIR))
+
 help: ## Outputs this help screen
 	@echo "\033[33m## —— 🦉 CodeClarity's $(KIND)-$(NAME) Makefile 🦉 ——————————————————————————————————\033[0m"
 	@grep -E '(^[a-zA-Z0-9_-]+:.*?##.*$$)|(^##)' $(lastword $(MAKEFILE_LIST)) | awk 'BEGIN {FS = ":.*?## "}{printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}' | sed -e 's/\[32m##/[33m/'
@@ -20,9 +40,12 @@ build-prod: ## Builds the prod Docker images
 	@docker build \
 	-f .cloud/docker/Dockerfile \
 	--target plugin \
+	$(if $(PLATFORM),--platform $(PLATFORM),) \
+	--build-arg KIND=$(DOCKER_KIND) \
 	--build-arg PLUGINNAME=$(NAME) \
+	--build-arg DIRNAME=$(DIRNAME) \
 	--tag $(REPOSITORY):latest \
-	.
+	$(BUILD_CONTEXT)
 
 build: ## Builds the dev Docker images
 	@cd ../../../.cloud/scripts && sh build.sh $(KIND)-$(NAME)

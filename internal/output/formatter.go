@@ -47,7 +47,7 @@ func (f *Formatter) SetWriter(w io.Writer) {
 }
 
 // Print outputs data in the configured format
-func (f *Formatter) Print(data interface{}) error {
+func (f *Formatter) Print(data any) error {
 	switch f.format {
 	case FormatJSON:
 		return f.printJSON(data)
@@ -106,13 +106,13 @@ func (f *Formatter) printTableAsYAML(headers []string, rows [][]string) {
 	f.printYAML(result)
 }
 
-func (f *Formatter) printJSON(data interface{}) error {
+func (f *Formatter) printJSON(data any) error {
 	enc := json.NewEncoder(f.writer)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
 }
 
-func (f *Formatter) printYAML(data interface{}) error {
+func (f *Formatter) printYAML(data any) error {
 	enc := yaml.NewEncoder(f.writer)
 	enc.SetIndent(2)
 	return enc.Encode(data)
@@ -121,25 +121,25 @@ func (f *Formatter) printYAML(data interface{}) error {
 // Color helpers
 
 // Success prints a success message
-func Success(format string, args ...interface{}) {
+func Success(format string, args ...any) {
 	green := color.New(color.FgGreen).SprintFunc()
 	fmt.Printf("%s %s\n", green("✓"), fmt.Sprintf(format, args...))
 }
 
 // Error prints an error message
-func Error(format string, args ...interface{}) {
+func Error(format string, args ...any) {
 	red := color.New(color.FgRed).SprintFunc()
 	fmt.Fprintf(os.Stderr, "%s %s\n", red("✗"), fmt.Sprintf(format, args...))
 }
 
 // Warning prints a warning message
-func Warning(format string, args ...interface{}) {
+func Warning(format string, args ...any) {
 	yellow := color.New(color.FgYellow).SprintFunc()
 	fmt.Printf("%s %s\n", yellow("!"), fmt.Sprintf(format, args...))
 }
 
 // Info prints an info message
-func Info(format string, args ...interface{}) {
+func Info(format string, args ...any) {
 	blue := color.New(color.FgBlue).SprintFunc()
 	fmt.Printf("%s %s\n", blue("ℹ"), fmt.Sprintf(format, args...))
 }

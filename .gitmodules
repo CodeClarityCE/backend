@@ -39,7 +39,7 @@
 	url = https://github.com/CodeClarityCE/service-package-follower.git
 [submodule "services/scheduler"]
 	path = services/scheduler
-	url = git@github.com:CodeClarityCE/service-scheduler.git
+	url = https://github.com/CodeClarityCE/service-scheduler.git
 [submodule "plugins/php-sbom"]
 	path = plugins/php-sbom
 	url = https://github.com/CodeClarityCE/plugin-sbom-php

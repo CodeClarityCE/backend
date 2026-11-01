@@ -59,15 +59,15 @@ type Organization struct {
 
 // Analyzer represents an analyzer configuration
 type Analyzer struct {
-	ID                 string     `json:"id"`
-	Name               string     `json:"name"`
-	Description        string     `json:"description"`
-	CreatedOn          time.Time  `json:"created_on"`
-	Steps              [][]Stage  `json:"steps"`
-	SupportedLanguages []string   `json:"supported_languages,omitempty"`
-	LanguageConfig     any        `json:"language_config,omitempty"`
-	Logo               string     `json:"logo,omitempty"`
-	Global             bool       `json:"global"`
+	ID                 string    `json:"id"`
+	Name               string    `json:"name"`
+	Description        string    `json:"description"`
+	CreatedOn          time.Time `json:"created_on"`
+	Steps              [][]Stage `json:"steps"`
+	SupportedLanguages []string  `json:"supported_languages,omitempty"`
+	LanguageConfig     any       `json:"language_config,omitempty"`
+	Logo               string    `json:"logo,omitempty"`
+	Global             bool      `json:"global"`
 }
 
 // Stage represents an analysis stage
@@ -79,12 +79,12 @@ type Stage struct {
 
 // AnalyzerCreateRequest represents the request to create an analyzer
 type AnalyzerCreateRequest struct {
-	Name               string     `json:"name"`
-	Description        string     `json:"description"`
-	Steps              [][]Stage  `json:"steps"`
-	SupportedLanguages []string   `json:"supported_languages,omitempty"`
-	LanguageConfig     any        `json:"language_config,omitempty"`
-	Logo               string     `json:"logo,omitempty"`
+	Name               string    `json:"name"`
+	Description        string    `json:"description"`
+	Steps              [][]Stage `json:"steps"`
+	SupportedLanguages []string  `json:"supported_languages,omitempty"`
+	LanguageConfig     any       `json:"language_config,omitempty"`
+	Logo               string    `json:"logo,omitempty"`
 }
 
 // Project represents a CodeClarity project
@@ -190,11 +190,11 @@ type LicenseStats struct {
 
 // Vulnerability represents a merged vulnerability from analysis results
 type Vulnerability struct {
-	ID          string           `json:"Id"`
-	Affected    []AffectedVuln   `json:"Affected"`
-	Severity    Severity         `json:"Severity"`
-	Description string           `json:"Description"`
-	EPSS        *EPSS            `json:"EPSS,omitempty"`
+	ID          string         `json:"Id"`
+	Affected    []AffectedVuln `json:"Affected"`
+	Severity    Severity       `json:"Severity"`
+	Description string         `json:"Description"`
+	EPSS        *EPSS          `json:"EPSS,omitempty"`
 }
 
 // AffectedVuln represents an affected dependency
