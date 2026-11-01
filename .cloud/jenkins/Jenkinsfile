@@ -35,8 +35,11 @@ pipeline {
         stage('Setup') {
             steps {
                 // The workspace is reused across builds; sync first so a
-                // changed .gitmodules URL replaces the one cached in .git/config.
-                sh 'git submodule sync --recursive && git submodule update --init --recursive'
+                // changed .gitmodules URL replaces the one cached in .git/config,
+                // and force the checkout so a clone left without a working tree
+                // by an aborted build (HEAD already at the recorded commit) or
+                // with stray edits is restored.
+                sh 'git submodule sync --recursive && git submodule update --init --recursive --force'
             }
         }
 
