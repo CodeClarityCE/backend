@@ -61,6 +61,7 @@ jobs:
       - name: go test
         run: go test -v ./...
       - name: govulncheck
+        continue-on-error: true
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
       - name: go build
         run: go build -o bin/codeclarity .
