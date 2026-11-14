@@ -45,6 +45,8 @@ jobs:
             echo "::error file=go.mod::go.mod or go.sum is not tidy. Run go mod tidy and commit the result."
             exit 1
           }
+      - name: Probe list unformatted files repo-wide
+        run: gofmt -l .
       - name: gofmt
         # Only the CLI's own files; the submodules are checked in their own repos.
         run: |
