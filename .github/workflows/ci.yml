@@ -3,6 +3,7 @@ name: CI
 
 on:
   pull_request:
+    branches: [main, develop]
   push:
     branches: [main, develop]
 
@@ -19,7 +20,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    # Keep in sync with CodeClarityCE/.github go-library.yml, the Dockerfiles and go.mod.
+    # Keep in sync with CodeClarityCE/.github go-checks.yml, the Dockerfiles and go.mod.
     container:
       image: golang:1.27.4@sha256:5e8afd493a7124a8586e134d9b532731161d4b9becf9dee5a5956b107426f93d
     env:
@@ -70,7 +71,7 @@ jobs:
     permissions:
       contents: read
 
-  # The required check: fails if any job failed or was cancelled; skipped jobs count as success.
+  # The required check: fails if any needed job failed or was cancelled; skipped counts as success.
   ci:
     needs: [checks, lint]
     if: always()
@@ -80,11 +81,10 @@ jobs:
     steps:
       - name: Check job results
         env:
-          NEEDS: ${{ toJSON(needs) }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          bad=$(jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | "\(.key): \(.value.result)"' <<<"$NEEDS")
-          if [[ -n "$bad" ]]; then
-            echo "::error::Jobs did not succeed: $(tr '\n' ' ' <<<"$bad")"
+          echo "results: $RESULTS"
+          if [[ " $RESULTS " == *" failure "* || " $RESULTS " == *" cancelled "* ]]; then
+            echo "::error::A needed job failed or was cancelled: $RESULTS"
             exit 1
           fi
-          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
