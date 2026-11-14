@@ -7,7 +7,7 @@ import (
 )
 
 var versionCmd = &cobra.Command{
-	Use:   "version",
+	Use: "version",
 	Short: "Print the CLI version",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("codeclarity version %s\n", Version)
