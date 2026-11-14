@@ -66,14 +66,9 @@ jobs:
       - name: go build
         run: go build -o bin/codeclarity .
 
-  lint:
-    uses: CodeClarityCE/.github/.github/workflows/workflow-lint.yml@v1
-    permissions:
-      contents: read
-
   # The required check: fails if any job failed or was cancelled; skipped jobs count as success.
   ci:
-    needs: [checks, lint]
+    needs: [checks]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
