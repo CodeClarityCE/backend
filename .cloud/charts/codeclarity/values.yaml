@@ -90,12 +90,3 @@ vulnerability:
   requests:
     memory: "128Mi"
     cpu: "25m"
-
-patching:
-  replicaCount: 1
-  limits:
-    memory: "128Mi"
-    cpu: "25m"
-  requests:
-    memory: "128Mi"
-    cpu: "25m"

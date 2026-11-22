@@ -1,4 +1,4 @@
-# CLI CI: Go checks in workspace mode against the submodules, workflow lint and the ci gate.
+# CLI CI: the central Go checks in workspace mode, workflow lint and the ci gate.
 name: CI
 
 on:
@@ -14,57 +14,16 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Workspace mode against the submodules; golangci-lint alone runs with GOWORK=off,
+  # since the CLI imports no workspace module. On the spec branch until the inputs reach v1.
   checks:
-    name: go checks
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    uses: CodeClarityCE/.github/.github/workflows/go-checks.yml@spec/312-beta
     permissions:
       contents: read
-    # Keep in sync with CodeClarityCE/.github go-checks.yml, the Dockerfiles and go.mod.
-    container:
-      image: golang:1.27.4@sha256:5e8afd493a7124a8586e134d9b532731161d4b9becf9dee5a5956b107426f93d
-    env:
-      GOTOOLCHAIN: local
-      GOPRIVATE: github.com/CodeClarityCE/*
-    defaults:
-      run:
-        shell: bash
-    steps:
-      # go.work lists the submodules, so workspace mode needs them checked out.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: recursive
-          persist-credentials: false
-      # The container runs as root, so git needs the runner-owned checkout marked safe.
-      - name: Trust the checkout
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - name: go mod download
-        run: go mod download
-      - name: go mod tidy
-        run: |
-          go mod tidy -diff || {
-            echo "::error file=go.mod::go.mod or go.sum is not tidy. Run go mod tidy and commit the result."
-            exit 1
-          }
-      - name: gofmt
-        # Only the CLI's own files; the submodules are checked in their own repos.
-        run: |
-          files=$(gofmt -l main.go cmd internal)
-          if [[ -n "$files" ]]; then
-            while IFS= read -r f; do
-              echo "::error file=$f::$f is not gofmt-formatted"
-            done <<<"$files"
-            echo "Run gofmt -w on the files above"
-            exit 1
-          fi
-      - name: go vet
-        run: go vet ./...
-      - name: go test
-        run: go test -v ./...
-      - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
-      - name: go build
-        run: go build -o bin/codeclarity .
+    with:
+      submodules: recursive
+      golangci-lint: true
+      golangci-lint-gowork-off: true
 
   lint:
     uses: CodeClarityCE/.github/.github/workflows/workflow-lint.yml@v1
