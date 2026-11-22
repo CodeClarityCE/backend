@@ -59,6 +59,30 @@ jobs:
           fi
       - name: go vet
         run: go vet ./...
+      # Same linters and config as go-checks.yml; this repo runs its own job, so it fetches the config itself.
+      - name: golangci-lint
+        env:
+          # The CLI imports no workspace module, so it lints as a standalone module.
+          GOWORK: "off"
+          # On the spec branch until the shared config reaches v1.
+          CONFIG_URL: https://raw.githubusercontent.com/CodeClarityCE/.github/spec/312-beta/.golangci.yml
+          # Keep in sync with GOLANGCI_LINT in CodeClarityCE/.github go-checks.yml.
+          GOLANGCI_LINT: github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/golangci.yml" "$CONFIG_URL"
+          status=0
+          go run "$GOLANGCI_LINT" run --config "$RUNNER_TEMP/golangci.yml" \
+            --output.text.print-issued-lines=false --output.text.colors=false ./... >"$RUNNER_TEMP/golangci.txt" || status=$?
+          cat "$RUNNER_TEMP/golangci.txt"
+          # One annotation per finding.
+          re='^([^:]+\.go):([0-9]+):([0-9]+): (.*)$'
+          while IFS= read -r line; do
+            if [[ "$line" =~ $re ]]; then
+              echo "::error file=${BASH_REMATCH[1]},line=${BASH_REMATCH[2]},col=${BASH_REMATCH[3]}::${BASH_REMATCH[4]}"
+            fi
+          done <"$RUNNER_TEMP/golangci.txt"
+          exit "$status"
       - name: go test
         run: go test -v ./...
       - name: govulncheck

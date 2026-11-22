@@ -28,7 +28,7 @@ func NewClient(baseURL string) *Client {
 	// Allow insecure TLS for local development
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: os.Getenv("CODECLARITY_ALLOW_INSECURE") == "true",
+			InsecureSkipVerify: os.Getenv("CODECLARITY_ALLOW_INSECURE") == "true", //nolint:gosec // opt-in for local self-signed instances
 		},
 	}
 

@@ -58,15 +58,19 @@ func (f *Formatter) Print(data any) error {
 	}
 }
 
-// PrintTable outputs data as a table
+// PrintTable outputs data as a table, reporting a write failure on stderr
 func (f *Formatter) PrintTable(headers []string, rows [][]string) {
+	if err := f.printTable(headers, rows); err != nil {
+		Error("Failed to print output: %v", err)
+	}
+}
+
+func (f *Formatter) printTable(headers []string, rows [][]string) error {
 	if f.format == FormatJSON {
-		f.printTableAsJSON(headers, rows)
-		return
+		return f.printTableAsJSON(headers, rows)
 	}
 	if f.format == FormatYAML {
-		f.printTableAsYAML(headers, rows)
-		return
+		return f.printTableAsYAML(headers, rows)
 	}
 
 	table := tablewriter.NewTable(f.writer,
@@ -74,11 +78,13 @@ func (f *Formatter) PrintTable(headers []string, rows [][]string) {
 		tablewriter.WithRowAlignment(tw.AlignLeft),
 	)
 	table.Header(headers)
-	table.Bulk(rows)
-	table.Render()
+	if err := table.Bulk(rows); err != nil {
+		return err
+	}
+	return table.Render()
 }
 
-func (f *Formatter) printTableAsJSON(headers []string, rows [][]string) {
+func (f *Formatter) printTableAsJSON(headers []string, rows [][]string) error {
 	var result []map[string]string
 	for _, row := range rows {
 		item := make(map[string]string)
@@ -89,10 +95,10 @@ func (f *Formatter) printTableAsJSON(headers []string, rows [][]string) {
 		}
 		result = append(result, item)
 	}
-	f.printJSON(result)
+	return f.printJSON(result)
 }
 
-func (f *Formatter) printTableAsYAML(headers []string, rows [][]string) {
+func (f *Formatter) printTableAsYAML(headers []string, rows [][]string) error {
 	var result []map[string]string
 	for _, row := range rows {
 		item := make(map[string]string)
@@ -103,7 +109,7 @@ func (f *Formatter) printTableAsYAML(headers []string, rows [][]string) {
 		}
 		result = append(result, item)
 	}
-	f.printYAML(result)
+	return f.printYAML(result)
 }
 
 func (f *Formatter) printJSON(data any) error {

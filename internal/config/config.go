@@ -64,7 +64,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) //nolint:gosec // fixed file in the user's config dir
 	if err != nil {
 		if os.IsNotExist(err) {
 			return DefaultConfig(), nil

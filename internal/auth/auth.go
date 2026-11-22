@@ -13,7 +13,7 @@ import (
 const (
 	CredentialsFileName = "credentials.yaml"
 	FilePermissions     = 0600
-	APIKeyEnvVar        = "CODECLARITY_API_KEY"
+	APIKeyEnvVar        = "CODECLARITY_API_KEY" //nolint:gosec // the variable's name, not a key
 )
 
 // TokenStore represents stored authentication tokens
@@ -42,7 +42,7 @@ func LoadTokens() (*TokenStore, error) {
 		return nil, err
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // fixed file in the user's config dir
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("not authenticated: run 'codeclarity login'")
@@ -69,7 +69,7 @@ func SaveTokens(tokens *TokenStore) error {
 		return err
 	}
 
-	data, err := yaml.Marshal(tokens)
+	data, err := yaml.Marshal(tokens) //nolint:gosec // the credentials file, written 0600 below
 	if err != nil {
 		return err
 	}
