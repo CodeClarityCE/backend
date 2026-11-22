@@ -41,6 +41,8 @@ codeclarity results --format json > findings.json
   analysis. It prints the organization, project and analysis ids as JSON. `--wait` fails when the analysis fails
   or `--timeout` passes.
 - `results` prints the findings of the last analysis, or of `--project` and `--analysis`.
+  `--format cyclonedx` prints the analysis's SBOM as CycloneDX 1.6 JSON instead, with every workspace unless
+  `--workspace` names one; `--component-name` and `--component-version` name the analysed software in it.
 - An instance with a private CA: point `SSL_CERT_FILE` at the CA certificate.
 
 ## Contributing

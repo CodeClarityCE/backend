@@ -18,6 +18,8 @@ type Report struct {
 	AnalysisID     string    `json:"analysis_id"`
 	Status         string    `json:"status"`
 	Findings       []Finding `json:"findings"`
+	// SBOM is read only for the formats that write it (NeedsSBOM).
+	SBOM *SBOM `json:"-"`
 }
 
 // Finding is one vulnerability and the dependencies it affects.
