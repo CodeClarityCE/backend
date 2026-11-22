@@ -58,7 +58,7 @@ func TestResultsWriteACycloneDXBOMOfEveryWorkspace(t *testing.T) {
 		},
 		"frontend": {dependency("odd", "2.0.0", "pkg:npm/odd@2.0.0", "SEE LICENSE IN LICENSE.md")},
 	}
-	Version = "9.9.9-test"
+	setVersion(t, "9.9.9-test")
 	loggedIn(t, api, readToken)
 
 	got := run(t, "results", "--project", "project-1", "--analysis", "analysis-1", "--format", "cyclonedx",

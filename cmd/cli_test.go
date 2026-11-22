@@ -13,6 +13,14 @@ type result struct {
 	stderr string
 }
 
+// setVersion sets the build version for one test.
+func setVersion(t *testing.T, v string) {
+	t.Helper()
+	old := Version
+	Version = v
+	t.Cleanup(func() { Version = old })
+}
+
 // run runs the CLI with args, as a pipeline step would.
 func run(t *testing.T, args ...string) result {
 	t.Helper()
@@ -23,7 +31,7 @@ func run(t *testing.T, args ...string) result {
 
 func TestVersionPrintsTheBuildVersion(t *testing.T) {
 	isolate(t)
-	Version = "1.2.3-test"
+	setVersion(t, "1.2.3-test")
 
 	got := run(t, "version")
 

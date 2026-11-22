@@ -54,7 +54,7 @@ func level(severity string) string {
 	}
 }
 
-// truncate cuts text to at most max bytes, on a rune boundary.
+// truncate cuts text to at most limit bytes, on a rune boundary.
 func truncate(text string, limit int) string {
 	if len(text) <= limit {
 		return text

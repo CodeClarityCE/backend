@@ -39,6 +39,7 @@ type analyzeOptions struct {
 	analyzer string
 	name     string
 	wait     bool
+	noWait   bool
 	timeout  time.Duration
 	project  string
 	branch   string
@@ -54,13 +55,14 @@ func newAnalyzeCmd() *cobra.Command {
 
 .git, node_modules and vendor are left out of an upload; the lockfiles are what the analysis reads.
 A linked project is analysed on its default branch, or on --branch; the instance fetches it.
-With --wait it returns when the analysis ends, and fails if it failed or --timeout passed.
+It waits for the analysis to end, and fails if it failed or --timeout passed; --no-wait returns once it starts.
 It prints the organization, project and analysis ids as JSON, and remembers them for results.
 
-  codeclarity analyze . --analyzer "Default Analyzer" --wait --timeout 20m
-  codeclarity analyze --project <project id> --branch main --wait`,
+  codeclarity analyze . --analyzer "Default Analyzer" --timeout 20m
+  codeclarity analyze --project <project id> --branch main --no-wait`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			o.wait = !o.noWait
 			switch {
 			case len(args) == 1 && o.project != "":
 				return fmt.Errorf("pass a directory or --project, not both")
@@ -77,8 +79,11 @@ It prints the organization, project and analysis ids as JSON, and remembers them
 	}
 	cmd.Flags().StringVar(&o.analyzer, "analyzer", "Default Analyzer", "name or id of the analyzer to run")
 	cmd.Flags().StringVar(&o.name, "name", "", "project name (default: the directory's name)")
-	cmd.Flags().BoolVar(&o.wait, "wait", false, "wait for the analysis to end")
-	cmd.Flags().DurationVar(&o.timeout, "timeout", 30*time.Minute, "how long --wait waits")
+	// --wait is the default; the flag stays so existing pipelines keep working.
+	cmd.Flags().BoolVar(&o.wait, "wait", true, "wait for the analysis to end (the default)")
+	cmd.Flags().BoolVar(&o.noWait, "no-wait", false, "return once the analysis has started")
+	cmd.MarkFlagsMutuallyExclusive("wait", "no-wait")
+	cmd.Flags().DurationVar(&o.timeout, "timeout", 30*time.Minute, "how long to wait for the analysis")
 	cmd.Flags().StringVar(&o.project, "project", "", "id of a project on the instance to analyse instead of an upload")
 	cmd.Flags().StringVar(&o.branch, "branch", "", "branch of the --project to analyse (default: its default branch)")
 	return cmd

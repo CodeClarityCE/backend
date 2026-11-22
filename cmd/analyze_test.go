@@ -10,12 +10,18 @@ import (
 	"time"
 )
 
+// fastPolling makes waiting for an analysis take milliseconds.
+func fastPolling(t *testing.T) {
+	t.Helper()
+	pollFirst, pollMax = time.Millisecond, 5*time.Millisecond
+	t.Cleanup(func() { pollFirst, pollMax = defaultPollFirst, defaultPollMax })
+}
+
 // loggedIn logs the CLI in to api with token and makes waiting fast.
 func loggedIn(t *testing.T, api *fakeAPI, token string) {
 	t.Helper()
 	isolate(t)
-	pollFirst, pollMax = time.Millisecond, 5*time.Millisecond
-	t.Cleanup(func() { pollFirst, pollMax = defaultPollFirst, defaultPollMax })
+	fastPolling(t)
 	if got := run(t, "login", "--url", api.url(), "--org", fakeOrg, "--token", token); got.code != 0 {
 		t.Fatalf("login: %+v", got)
 	}
@@ -49,7 +55,8 @@ func TestAnalyzeUploadsTheDirectoryAndWaitsForTheAnalysis(t *testing.T) {
 	api.statuses = []string{"requested", "started", "started", "completed"}
 	loggedIn(t, api, goodToken)
 
-	got := run(t, "analyze", project(t), "--analyzer", "Default Analyzer", "--wait")
+	// It waits by default.
+	got := run(t, "analyze", project(t), "--analyzer", "Default Analyzer")
 
 	if got.code != 0 {
 		t.Fatalf("got %+v", got)
@@ -82,7 +89,7 @@ func TestAnalyzeConfiguresThePluginsAsTheWebAppDoes(t *testing.T) {
 	api := newFakeAPI(t)
 	loggedIn(t, api, goodToken)
 
-	got := run(t, "analyze", project(t), "--analyzer", "Default Analyzer")
+	got := run(t, "analyze", project(t), "--analyzer", "Default Analyzer", "--no-wait")
 
 	if got.code != 0 {
 		t.Fatalf("got %+v", got)
@@ -99,9 +106,20 @@ func TestAnalyzeConfiguresThePluginsAsTheWebAppDoes(t *testing.T) {
 	if !reflect.DeepEqual(api.startBody, want) {
 		t.Fatalf("started with %v, want %v", api.startBody, want)
 	}
-	// Without --wait it does not poll.
+	// With --no-wait it does not poll.
 	if n := api.count("GET", "/projects/project-1/analyses/analysis-1"); n != 0 {
 		t.Fatalf("polled %d times", n)
+	}
+}
+
+func TestAnalyzeRefusesWaitAndNoWaitTogether(t *testing.T) {
+	api := newFakeAPI(t)
+	loggedIn(t, api, goodToken)
+
+	got := run(t, "analyze", project(t), "--wait", "--no-wait")
+
+	if got.code == 0 || api.startBody != nil {
+		t.Fatalf("got %+v, started with %v", got, api.startBody)
 	}
 }
 
@@ -168,6 +186,7 @@ func TestAnalyzeWithAReadTokenIsRefused(t *testing.T) {
 func TestAnalyzeWorksFromTheEnvironmentAlone(t *testing.T) {
 	api := newFakeAPI(t)
 	isolate(t)
+	fastPolling(t)
 	t.Setenv("CODECLARITY_URL", api.url())
 	t.Setenv("CODECLARITY_ORG", fakeOrg)
 	t.Setenv("CODECLARITY_TOKEN", goodToken)
