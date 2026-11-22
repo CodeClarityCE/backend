@@ -21,6 +21,8 @@ type exitError struct {
 
 func (e *exitError) Error() string { return e.err.Error() }
 
+func (e *exitError) Unwrap() error { return e.err }
+
 // newRootCmd builds the command tree, writing to stdout and stderr.
 func newRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	root := &cobra.Command{
@@ -29,7 +31,7 @@ func newRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		Long: `Analyse a project on a CodeClarity instance from a CI pipeline.
 
   codeclarity login --url https://codeclarity.example.com/api --org <organization id>
-  codeclarity analyze . --analyzer "Default Analyzer" --wait
+  codeclarity analyze . --analyzer "Default Analyzer"
   codeclarity results --format json
 
 Log in with an Organization token, from --token or CODECLARITY_TOKEN.`,

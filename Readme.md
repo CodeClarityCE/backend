@@ -31,7 +31,7 @@ An organization admin creates an Organization token (scope `analyze`) on the ins
 ```sh
 export CODECLARITY_TOKEN=ccot_...
 codeclarity login --url https://codeclarity.example.com/api --org <organization id>
-codeclarity analyze . --analyzer "Default Analyzer" --wait --timeout 20m
+codeclarity analyze . --analyzer "Default Analyzer" --timeout 20m
 codeclarity results --format json > findings.json
 codeclarity results --format sarif --fail-on high > codeclarity.sarif
 ```
@@ -39,8 +39,8 @@ codeclarity results --format sarif --fail-on high > codeclarity.sarif
 - `login` checks the token and stores it in `~/.codeclarity/credentials.json` (mode 0600). A pipeline can skip it by
   setting `CODECLARITY_URL`, `CODECLARITY_ORG` and `CODECLARITY_TOKEN`; the variables override the stored login.
 - `analyze` uploads the directory (without `.git`, `node_modules` and `vendor`) as a new project and starts an
-  analysis. It prints the organization, project and analysis ids as JSON. `--wait` fails when the analysis fails
-  or `--timeout` passes.
+  analysis. It prints the organization, project and analysis ids as JSON. It waits for the analysis to end and fails
+  when the analysis fails or `--timeout` passes; `--no-wait` returns once the analysis has started.
 - `analyze --project <id>` analyses a project already on the instance, such as one linked from GitHub or GitLab,
   without uploading anything: on its default branch, or on `--branch`. The instance fetches the code.
 - `results` prints the findings of the last analysis, or of `--project` and `--analysis`, as `--format json`
