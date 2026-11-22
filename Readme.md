@@ -24,6 +24,26 @@ Secure your software empower your team.
 
 # CodeClarity Backend
 
+## CLI
+
+The module at the root of this repository is the `codeclarity` CLI, which a CI pipeline uses to analyse a project.
+An organization admin creates an Organization token (scope `analyze`) on the instance's Organization tokens page.
+
+```sh
+export CODECLARITY_TOKEN=ccot_...
+codeclarity login --url https://codeclarity.example.com/api --org <organization id>
+codeclarity analyze . --analyzer "Default Analyzer" --wait --timeout 20m
+codeclarity results --format json > findings.json
+```
+
+- `login` checks the token and stores it in `~/.codeclarity/credentials.json` (mode 0600). A pipeline can skip it by
+  setting `CODECLARITY_URL`, `CODECLARITY_ORG` and `CODECLARITY_TOKEN`; the variables override the stored login.
+- `analyze` uploads the directory (without `.git`, `node_modules` and `vendor`) as a new project and starts an
+  analysis. It prints the organization, project and analysis ids as JSON. `--wait` fails when the analysis fails
+  or `--timeout` passes.
+- `results` prints the findings of the last analysis, or of `--project` and `--analysis`.
+- An instance with a private CA: point `SSL_CERT_FILE` at the CA certificate.
+
 ## Contributing
 
 If you'd like to contribute code or documentation, please see [CONTRIBUTING.md](https://github.com/CodeClarityCE/codeclarity-dev/blob/main/CONTRIBUTING.md) for guidelines on how to do so.
