@@ -33,6 +33,7 @@ export CODECLARITY_TOKEN=ccot_...
 codeclarity login --url https://codeclarity.example.com/api --org <organization id>
 codeclarity analyze . --analyzer "Default Analyzer" --wait --timeout 20m
 codeclarity results --format json > findings.json
+codeclarity results --format sarif --fail-on high > codeclarity.sarif
 ```
 
 - `login` checks the token and stores it in `~/.codeclarity/credentials.json` (mode 0600). A pipeline can skip it by
@@ -40,9 +41,18 @@ codeclarity results --format json > findings.json
 - `analyze` uploads the directory (without `.git`, `node_modules` and `vendor`) as a new project and starts an
   analysis. It prints the organization, project and analysis ids as JSON. `--wait` fails when the analysis fails
   or `--timeout` passes.
-- `results` prints the findings of the last analysis, or of `--project` and `--analysis`.
-  `--format cyclonedx` prints the analysis's SBOM as CycloneDX 1.6 JSON instead, with every workspace unless
+- `analyze --project <id>` analyses a project already on the instance, such as one linked from GitHub or GitLab,
+  without uploading anything: on its default branch, or on `--branch`. The instance fetches the code.
+- `results` prints the findings of the last analysis, or of `--project` and `--analysis`, as `--format json`
+  (default), `sarif` or `cyclonedx`.
+- `--format sarif` writes SARIF 2.1.0 for GitHub code scanning: one alert per vulnerable dependency, located at the
+  first line of `--manifest` (by default the first of `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`,
+  `composer.lock`, `package.json`, `composer.json` in the working directory, which should be the repository root).
+  Upload it with `github/codeql-action/upload-sarif`.
+- `--format cyclonedx` prints the analysis's SBOM as CycloneDX 1.6 JSON instead, with every workspace unless
   `--workspace` names one; `--component-name` and `--component-version` name the analysed software in it.
+- `results --fail-on <severity>` (`critical`, `high`, `medium`, `low` or `none`) still prints every finding, then exits
+  with code 3 when one is at or above that severity. Every other error exits with code 1.
 - An instance with a private CA: point `SSL_CERT_FILE` at the CA certificate.
 
 ## Contributing

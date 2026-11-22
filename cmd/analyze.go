@@ -40,29 +40,47 @@ type analyzeOptions struct {
 	name     string
 	wait     bool
 	timeout  time.Duration
+	project  string
+	branch   string
 }
 
 func newAnalyzeCmd() *cobra.Command {
 	var o analyzeOptions
 	cmd := &cobra.Command{
-		Use:   "analyze <directory>",
-		Short: "Upload a directory and analyse it",
-		Long: `Upload a directory as a new project and start an analysis of it.
+		Use:   "analyze [<directory> | --project <id>]",
+		Short: "Upload a directory, or name a linked project, and analyse it",
+		Long: `Upload a directory as a new project, or name a project already on the instance
+(such as one linked from GitHub or GitLab), and start an analysis of it.
 
-.git, node_modules and vendor are left out; the lockfiles are what the analysis reads.
+.git, node_modules and vendor are left out of an upload; the lockfiles are what the analysis reads.
+A linked project is analysed on its default branch, or on --branch; the instance fetches it.
 With --wait it returns when the analysis ends, and fails if it failed or --timeout passed.
 It prints the organization, project and analysis ids as JSON, and remembers them for results.
 
-  codeclarity analyze . --analyzer "Default Analyzer" --wait --timeout 20m`,
-		Args: cobra.ExactArgs(1),
+  codeclarity analyze . --analyzer "Default Analyzer" --wait --timeout 20m
+  codeclarity analyze --project <project id> --branch main --wait`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return analyze(cmd, args[0], o)
+			switch {
+			case len(args) == 1 && o.project != "":
+				return fmt.Errorf("pass a directory or --project, not both")
+			case len(args) == 1 && o.branch != "":
+				return fmt.Errorf("--branch is for a linked project; an upload has no branches")
+			case len(args) == 1:
+				return analyze(cmd, args[0], o)
+			case o.project != "":
+				return analyzeProject(cmd, o)
+			default:
+				return fmt.Errorf("pass the directory to upload, or --project with the id of a linked project")
+			}
 		},
 	}
 	cmd.Flags().StringVar(&o.analyzer, "analyzer", "Default Analyzer", "name or id of the analyzer to run")
 	cmd.Flags().StringVar(&o.name, "name", "", "project name (default: the directory's name)")
 	cmd.Flags().BoolVar(&o.wait, "wait", false, "wait for the analysis to end")
 	cmd.Flags().DurationVar(&o.timeout, "timeout", 30*time.Minute, "how long --wait waits")
+	cmd.Flags().StringVar(&o.project, "project", "", "id of a project on the instance to analyse instead of an upload")
+	cmd.Flags().StringVar(&o.branch, "branch", "", "branch of the --project to analyse (default: its default branch)")
 	return cmd
 }
 
@@ -106,10 +124,46 @@ func analyze(cmd *cobra.Command, dir string, o analyzeOptions) error {
 	if err := client.UploadArchive(ctx, org, projectID, "source.zip", zipped); err != nil {
 		return writeRefused("upload the directory", err)
 	}
+	return start(cmd, client, org, analyzer, projectID, name, uploadBranch, o)
+}
+
+// analyzeProject analyses a project already on the instance, without uploading anything.
+func analyzeProject(cmd *cobra.Command, o analyzeOptions) error {
+	s, err := session.Load()
+	if err != nil {
+		return err
+	}
+	ctx := cmd.Context()
+	client := api.New(s.URL, s.Token)
+	org := s.OrganizationID
+
+	project, err := client.Project(ctx, org, o.project)
+	if err != nil {
+		return fmt.Errorf("reading project %s: %w", o.project, err)
+	}
+	branch := o.branch
+	switch {
+	case branch != "":
+	case project.Type == "FILE" || project.DefaultBranch == "":
+		// An upload is unpacked into one directory, whatever its default branch says.
+		branch = uploadBranch
+	default:
+		branch = project.DefaultBranch
+	}
+	analyzer, err := findAnalyzer(ctx, client, org, o.analyzer)
+	if err != nil {
+		return err
+	}
+	return start(cmd, client, org, analyzer, project.ID, project.Name, branch, o)
+}
+
+// start starts the analysis of a project's branch, records it for results, and waits if asked.
+func start(cmd *cobra.Command, client *api.Client, org string, analyzer api.Analyzer, projectID, name, branch string, o analyzeOptions) error {
+	ctx := cmd.Context()
 	analysisID, err := client.StartAnalysis(ctx, org, projectID, api.AnalysisStart{
 		AnalyzerID: analyzer.ID,
-		Branch:     uploadBranch,
-		Config:     pluginConfig(analyzer, org, projectID),
+		Branch:     branch,
+		Config:     pluginConfig(analyzer, org, projectID, branch),
 	})
 	if err != nil {
 		return writeRefused("start the analysis", err)
@@ -117,10 +171,11 @@ func analyze(cmd *cobra.Command, dir string, o analyzeOptions) error {
 	if err := session.SaveLastAnalysis(session.Analysis{ProjectID: projectID, AnalysisID: analysisID}); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "Started analysis %s of project %s with %s\n", analysisID, name, analyzer.Name)
+	fmt.Fprintf(cmd.ErrOrStderr(), "Started analysis %s of project %s (%s) with %s\n", analysisID, name, branch, analyzer.Name)
 
 	status := "requested"
 	if o.wait {
+		var err error
 		if status, err = waitFor(ctx, cmd, client, org, projectID, analysisID, o.timeout); err != nil {
 			return err
 		}
@@ -150,8 +205,8 @@ func findAnalyzer(ctx context.Context, client *api.Client, org, wanted string) (
 }
 
 // pluginConfig configures each plugin that takes options, as the web app does by default.
-func pluginConfig(analyzer api.Analyzer, org, projectID string) map[string]map[string]any {
-	source := fmt.Sprintf("%s/projects/%s/%s", org, projectID, uploadBranch)
+func pluginConfig(analyzer api.Analyzer, org, projectID, branch string) map[string]map[string]any {
+	source := fmt.Sprintf("%s/projects/%s/%s", org, projectID, branch)
 	config := map[string]map[string]any{}
 	for _, stage := range analyzer.Steps {
 		for _, plugin := range stage {
@@ -160,7 +215,7 @@ func pluginConfig(analyzer api.Analyzer, org, projectID string) map[string]map[s
 			}
 			switch {
 			case strings.HasSuffix(plugin.Name, "-sbom"):
-				config[plugin.Name] = map[string]any{"branch": uploadBranch, "project": source}
+				config[plugin.Name] = map[string]any{"branch": branch, "project": source}
 			case vulnPlugins[plugin.Name]:
 				config["vuln-finder"] = map[string]any{"vulnerabilityPolicy": []string{}}
 			case licensePlugins[plugin.Name]:

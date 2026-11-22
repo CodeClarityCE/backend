@@ -69,7 +69,7 @@ type cdxLicenseName struct {
 }
 
 // writeCycloneDX writes the SBOM as CycloneDX 1.6 JSON, one component per package URL.
-func writeCycloneDX(w io.Writer, r Report) error {
+func writeCycloneDX(w io.Writer, r Report, _ Options) error {
 	if r.SBOM == nil {
 		return fmt.Errorf("the report has no SBOM")
 	}

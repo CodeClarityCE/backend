@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"codeclarity.io/internal/api"
@@ -18,7 +19,15 @@ type resultsOptions struct {
 	// Name and version of the analysed software in an SBOM.
 	componentName    string
 	componentVersion string
+	failOn           string
+	manifest         string
 }
+
+// manifests are the files SARIF results point at by default, the first one the checkout has.
+var manifests = []string{"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "composer.lock", "package.json", "composer.json"}
+
+// exitFindings is the exit code of results when --fail-on finds a finding.
+const exitFindings = 3
 
 func newResultsCmd() *cobra.Command {
 	var o resultsOptions
@@ -29,8 +38,15 @@ func newResultsCmd() *cobra.Command {
 by --project and --analysis. --format cyclonedx writes the analysis's SBOM instead, of
 every workspace unless --workspace names one.
 
+With --fail-on, it still prints every finding, then exits with code 3 when one is at or
+above that severity. Any other error exits with code 1.
+
   codeclarity results --format json > findings.json
-  codeclarity results --format cyclonedx --component-name my-app --component-version v1.2.0 > sbom.cdx.json`,
+  codeclarity results --format sarif --fail-on high > codeclarity.sarif
+  codeclarity results --format cyclonedx --component-name my-app --component-version v1.2.0 > sbom.cdx.json
+
+SARIF results point at --manifest, by default the first of ` + strings.Join(manifests, ", ") + `
+in the working directory, which should be the repository root.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return results(cmd, o)
@@ -42,6 +58,8 @@ every workspace unless --workspace names one.
 	cmd.Flags().StringVar(&o.workspace, "workspace", ".", "workspace of the project")
 	cmd.Flags().StringVar(&o.componentName, "component-name", "", "name of the analysed software in an SBOM (default: the project id)")
 	cmd.Flags().StringVar(&o.componentVersion, "component-version", "", "version of the analysed software in an SBOM")
+	cmd.Flags().StringVar(&o.manifest, "manifest", "", "sarif: the file results point at, relative to the repository root")
+	cmd.Flags().StringVar(&o.failOn, "fail-on", "", "exit with code 3 when a finding is at or above this severity: "+strings.Join(report.Severities, ", "))
 	return cmd
 }
 
@@ -53,6 +71,17 @@ func results(cmd *cobra.Command, o resultsOptions) error {
 	// Check the format before any request.
 	if err := report.Check(o.format); err != nil {
 		return err
+	}
+	if o.failOn != "" {
+		if err := report.CheckSeverity(o.failOn); err != nil {
+			return err
+		}
+	}
+	options := report.Options{Manifest: o.manifest, ToolVersion: Version}
+	if o.format == "sarif" && options.Manifest == "" {
+		if options.Manifest, err = findManifest(); err != nil {
+			return err
+		}
 	}
 	target := session.Analysis{ProjectID: o.project, AnalysisID: o.analysis}
 	if target.ProjectID == "" || target.AnalysisID == "" {
@@ -88,7 +117,16 @@ func results(cmd *cobra.Command, o resultsOptions) error {
 		}
 		r.SBOM.Name, r.SBOM.Version = o.componentName, o.componentVersion
 	}
-	return report.Write(o.format, cmd.OutOrStdout(), r)
+	if err := report.Write(o.format, cmd.OutOrStdout(), r, options); err != nil {
+		return err
+	}
+	if o.failOn == "" {
+		return nil
+	}
+	if n := r.AtOrAbove(o.failOn); n > 0 {
+		return &exitError{code: exitFindings, err: fmt.Errorf("%d %s at or above %s", n, plural(n, "finding"), o.failOn)}
+	}
+	return nil
 }
 
 // readSBOM reads the dependencies of the named workspaces, or of every workspace when none are named.
@@ -109,4 +147,21 @@ func readSBOM(cmd *cobra.Command, client *api.Client, org string, target session
 		sbom.Dependencies = append(sbom.Dependencies, deps...)
 	}
 	return sbom, nil
+}
+
+// findManifest picks the first manifest in the working directory.
+func findManifest() (string, error) {
+	for _, name := range manifests {
+		if info, err := os.Stat(name); err == nil && info.Mode().IsRegular() {
+			return name, nil
+		}
+	}
+	return "", fmt.Errorf("no %s here: pass --manifest with the file SARIF results point at", strings.Join(manifests, ", "))
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return word
+	}
+	return word + "s"
 }

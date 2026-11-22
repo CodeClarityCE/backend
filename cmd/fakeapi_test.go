@@ -18,6 +18,8 @@ const (
 	fakeOrg   = "11111111-1111-1111-1111-111111111111"
 	goodToken = "ccot_good"
 	readToken = "ccot_read"
+	// linkedProject is a project imported from GitHub, with default branch develop.
+	linkedProject = "project-linked"
 )
 
 // fakeAPI answers the API routes the CLI calls, as an instance with one organization would.
@@ -89,14 +91,23 @@ func (f *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 		reply(w, 201, map[string]any{"status_code": 201, "status": "success", "id": "project-1"})
 	case r.Method == http.MethodPatch && path == "/file/project-1/upload":
 		f.receiveChunk(w, r)
-	case r.Method == http.MethodPost && path == "/projects/project-1/analyses":
+	case r.Method == http.MethodGet && path == "/projects/project-1":
+		reply(w, 200, map[string]any{"data": map[string]any{"id": "project-1", "name": "shop-front", "type": "FILE", "default_branch": ""}})
+	case r.Method == http.MethodGet && path == "/projects/"+linkedProject:
+		reply(w, 200, map[string]any{"data": map[string]any{
+			"id": linkedProject, "name": "acme/shop-front", "type": "GITHUB", "default_branch": "develop",
+			"url": "https://github.com/acme/shop-front",
+		}})
+	case r.Method == http.MethodPost && (path == "/projects/project-1/analyses" || path == "/projects/"+linkedProject+"/analyses"):
 		_ = json.NewDecoder(r.Body).Decode(&f.startBody)
 		reply(w, 201, map[string]any{"status_code": 201, "status": "success", "id": "analysis-1"})
+	case r.Method == http.MethodGet && path == "/projects/"+linkedProject+"/analyses/analysis-1":
+		reply(w, 200, map[string]any{"data": map[string]any{"id": "analysis-1", "status": "completed"}})
 	case r.Method == http.MethodGet && path == "/projects/project-1/analyses/analysis-1":
 		status := f.statuses[min(f.analysisPolls, len(f.statuses)-1)]
 		f.analysisPolls++
 		reply(w, 200, map[string]any{"data": map[string]any{"id": "analysis-1", "status": status}})
-	case r.Method == http.MethodGet && path == "/projects/project-1/analysis/analysis-1/vulnerabilities":
+	case r.Method == http.MethodGet && (path == "/projects/project-1/analysis/analysis-1/vulnerabilities" || path == "/projects/"+linkedProject+"/analysis/analysis-1/vulnerabilities"):
 		f.replyFindings(w, r)
 	case r.Method == http.MethodGet && strings.HasPrefix(path, "/projects/project-1/analysis/analysis-1/sbom"):
 		f.replySBOM(w, r, strings.TrimPrefix(path, "/projects/project-1/analysis/analysis-1/sbom"))
