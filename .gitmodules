@@ -16,9 +16,6 @@
 [submodule "plugin-sca-vuln-finder"]
 	path = plugins/vuln-finder
 	url = https://github.com/CodeClarityCE/plugin-sca-vuln-finder.git
-[submodule "plugin-sca-patching"]
-	path = plugins/js-patching
-	url = https://github.com/CodeClarityCE/plugin-sca-patching.git
 [submodule "utility-dbhelper"]
 	path = utilities/db-helper
 	url = https://github.com/CodeClarityCE/utility-dbhelper.git
