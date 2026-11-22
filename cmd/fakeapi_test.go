@@ -29,6 +29,8 @@ type fakeAPI struct {
 	// statuses the next analysis reports, one per poll; the last one repeats.
 	statuses []string
 	findings []map[string]any
+	// sbom holds each workspace's dependencies; nil answers 404, as an analysis with no SBOM does.
+	sbom map[string][]map[string]any
 	// What the CLI sent.
 	requests      []string
 	projectName   string
@@ -96,6 +98,8 @@ func (f *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 		reply(w, 200, map[string]any{"data": map[string]any{"id": "analysis-1", "status": status}})
 	case r.Method == http.MethodGet && path == "/projects/project-1/analysis/analysis-1/vulnerabilities":
 		f.replyFindings(w, r)
+	case r.Method == http.MethodGet && strings.HasPrefix(path, "/projects/project-1/analysis/analysis-1/sbom"):
+		f.replySBOM(w, r, strings.TrimPrefix(path, "/projects/project-1/analysis/analysis-1/sbom"))
 	default:
 		reply(w, 404, map[string]any{"status_code": 404, "status": "failure", "error_code": "EntityNotFound", "error_message": "Not found"})
 	}
