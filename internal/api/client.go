@@ -225,6 +225,23 @@ func (c *Client) uploadChunk(ctx context.Context, org, project, fileName string,
 	return c.do(ctx, http.MethodPatch, orgPath(org, "file", project, "upload"), nil, &body, form.FormDataContentType(), nil)
 }
 
+// Project is a project of the organization: an upload (type FILE) or linked from GitHub or GitLab.
+type Project struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	DefaultBranch string `json:"default_branch"`
+}
+
+// Project returns one project of the organization.
+func (c *Client) Project(ctx context.Context, org, project string) (Project, error) {
+	var out struct {
+		Data Project `json:"data"`
+	}
+	err := c.do(ctx, http.MethodGet, orgPath(org, "projects", project), nil, nil, "", &out)
+	return out.Data, err
+}
+
 // AnalysisStart asks for an analysis of a project.
 type AnalysisStart struct {
 	AnalyzerID string                    `json:"analyzer_id"`

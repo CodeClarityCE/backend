@@ -204,3 +204,86 @@ func TestAnalyzeDoesNotFollowLinksOutOfTheDirectory(t *testing.T) {
 		}
 	}
 }
+
+func TestAnalyzeALinkedProjectOnItsDefaultBranchWithoutUploading(t *testing.T) {
+	api := newFakeAPI(t)
+	loggedIn(t, api, goodToken)
+
+	got := run(t, "analyze", "--project", linkedProject, "--analyzer", "Default Analyzer", "--wait")
+
+	if got.code != 0 {
+		t.Fatalf("got %+v", got)
+	}
+	var printed map[string]string
+	_ = json.Unmarshal([]byte(got.stdout), &printed)
+	if printed["project_id"] != linkedProject || printed["analysis_id"] != "analysis-1" || printed["status"] != "completed" {
+		t.Fatalf("printed %v", printed)
+	}
+	if api.count("POST", "/projects") != 0 || len(api.uploaded) != 0 {
+		t.Fatal("a linked project was uploaded")
+	}
+	want := map[string]any{
+		"analyzer_id": "analyzer-default",
+		"branch":      "develop",
+		"config": map[string]any{
+			"js-sbom":        map[string]any{"branch": "develop", "project": fakeOrg + "/projects/" + linkedProject + "/develop"},
+			"vuln-finder":    map[string]any{"vulnerabilityPolicy": []any{}},
+			"license-finder": map[string]any{"licensePolicy": []any{}},
+		},
+	}
+	if !reflect.DeepEqual(api.startBody, want) {
+		t.Fatalf("started with %v, want %v", api.startBody, want)
+	}
+	// results then reads this analysis.
+	if got := run(t, "results"); got.code != 0 || !strings.Contains(got.stdout, `"project_id": "`+linkedProject+`"`) {
+		t.Fatalf("results: %+v", got)
+	}
+}
+
+func TestAnalyzeALinkedProjectOnANamedBranch(t *testing.T) {
+	api := newFakeAPI(t)
+	loggedIn(t, api, goodToken)
+
+	got := run(t, "analyze", "--project", linkedProject, "--branch", "release/2.x")
+
+	if got.code != 0 || api.startBody["branch"] != "release/2.x" {
+		t.Fatalf("got %+v, started with %v", got, api.startBody)
+	}
+}
+
+func TestAnalyzeAnUploadedProjectAgainUsesItsUpload(t *testing.T) {
+	api := newFakeAPI(t)
+	loggedIn(t, api, goodToken)
+
+	got := run(t, "analyze", "--project", "project-1")
+
+	if got.code != 0 || api.startBody["branch"] != "main" || len(api.uploaded) != 0 {
+		t.Fatalf("got %+v, started with %v", got, api.startBody)
+	}
+}
+
+func TestAnalyzeTakesADirectoryOrAProjectNotBoth(t *testing.T) {
+	api := newFakeAPI(t)
+	loggedIn(t, api, goodToken)
+	before := len(api.requests)
+
+	for _, args := range [][]string{{"analyze"}, {"analyze", project(t), "--project", linkedProject}, {"analyze", project(t), "--branch", "main"}} {
+		if got := run(t, args...); got.code != 1 {
+			t.Errorf("%v: got %+v", args, got)
+		}
+	}
+	if len(api.requests) != before {
+		t.Fatalf("sent %v", api.requests[before:])
+	}
+}
+
+func TestAnalyzeAnUnknownProjectSaysSo(t *testing.T) {
+	api := newFakeAPI(t)
+	loggedIn(t, api, goodToken)
+
+	got := run(t, "analyze", "--project", "no-such-project")
+
+	if got.code != 1 || !strings.Contains(got.stderr, "no-such-project") || api.count("POST", "/projects/no-such-project/analyses") != 0 {
+		t.Fatalf("got %+v", got)
+	}
+}

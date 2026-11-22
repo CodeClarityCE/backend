@@ -58,12 +58,52 @@ func New(org, project string, analysis api.Analysis, findings []api.Finding) Rep
 	return r
 }
 
+// Severities lists the severity classes, highest first.
+var Severities = []string{"critical", "high", "medium", "low", "none"}
+
+func rank(severity string) int {
+	for i, s := range Severities {
+		if s == severity {
+			return i
+		}
+	}
+	return len(Severities)
+}
+
+// CheckSeverity fails for a name that is not a severity class.
+func CheckSeverity(severity string) error {
+	if rank(severity) == len(Severities) {
+		return fmt.Errorf("unknown severity %q: use one of %s", severity, strings.Join(Severities, ", "))
+	}
+	return nil
+}
+
+// AtOrAbove counts the findings at or above a severity class.
+func (r Report) AtOrAbove(severity string) int {
+	n := 0
+	for _, f := range r.Findings {
+		if rank(f.Severity) <= rank(severity) {
+			n++
+		}
+	}
+	return n
+}
+
+// Options are what a format needs beyond the report.
+type Options struct {
+	// Manifest is the file SARIF results point at, relative to the repository root.
+	Manifest string
+	// ToolVersion is the CLI version SARIF names.
+	ToolVersion string
+}
+
 // Renderer writes a report in one format.
-type Renderer func(w io.Writer, r Report) error
+type Renderer func(w io.Writer, r Report, o Options) error
 
 // renderers holds every format results can write, by name.
 var renderers = map[string]Renderer{
-	"json": writeJSON,
+	"json":  writeJSON,
+	"sarif": writeSARIF,
 }
 
 // Formats lists the format names, sorted.
@@ -85,14 +125,14 @@ func Check(format string) error {
 }
 
 // Write writes the report in the named format.
-func Write(format string, w io.Writer, r Report) error {
+func Write(format string, w io.Writer, r Report, o Options) error {
 	if err := Check(format); err != nil {
 		return err
 	}
-	return renderers[format](w, r)
+	return renderers[format](w, r, o)
 }
 
-func writeJSON(w io.Writer, r Report) error {
+func writeJSON(w io.Writer, r Report, _ Options) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(r)
