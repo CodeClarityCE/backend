@@ -17,7 +17,6 @@ Secure your software empower your team.
   - [Contributing](#contributing)
   - [Reporting Issues](#reporting-issues)
 
-
 </details>
 
 ---
