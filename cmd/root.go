@@ -1,113 +1,79 @@
+// Package cmd holds the CLI commands a CI pipeline runs: login, logout, version, analyze and results.
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 
-	"codeclarity.io/cmd/analysis"
-	"codeclarity.io/cmd/analyzer"
-	"codeclarity.io/cmd/project"
-	"codeclarity.io/cmd/result"
-	"codeclarity.io/internal/config"
 	"github.com/spf13/cobra"
 )
 
-var (
-	// Version is set at build time
-	Version = "dev"
+// Version is set at build time.
+var Version = "dev"
 
-	// Global flags
-	orgID        string
-	outputFormat string
-	debug        bool
-	apiURL       string
-
-	// Config
-	cfg *config.Config
-)
-
-// rootCmd represents the base command
-var rootCmd = &cobra.Command{
-	Use:   "codeclarity",
-	Short: "CodeClarity CLI - Security analysis for your projects",
-	Long: `CodeClarity CLI provides command-line access to the CodeClarity
-security analysis platform. Analyze your projects for vulnerabilities,
-license compliance, and generate software bill of materials.
-
-Get started:
-  codeclarity login              # Authenticate with your account
-  codeclarity project list       # List your projects
-  codeclarity analysis start     # Start a new analysis`,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Skip config loading for certain commands
-		if cmd.Name() == "login" || cmd.Name() == "version" || cmd.Name() == "help" {
-			return nil
-		}
-
-		var err error
-		cfg, err = config.Load()
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
-		}
-
-		// Override with flags
-		if apiURL != "" {
-			cfg.APIBaseURL = apiURL
-		}
-		if outputFormat != "" {
-			cfg.OutputFormat = outputFormat
-		}
-		if debug {
-			cfg.Debug = true
-		}
-
-		return nil
-	},
+// exitError ends a run with a chosen exit code.
+type exitError struct {
+	code int
+	err  error
 }
 
-// Execute runs the root command
+func (e *exitError) Error() string { return e.err.Error() }
+
+func (e *exitError) Unwrap() error { return e.err }
+
+// newRootCmd builds the command tree, writing to stdout and stderr.
+func newRootCmd(stdout, stderr io.Writer) *cobra.Command {
+	root := &cobra.Command{
+		Use:   "codeclarity",
+		Short: "Analyse a project on a CodeClarity instance from a CI pipeline",
+		Long: `Analyse a project on a CodeClarity instance from a CI pipeline.
+
+  codeclarity login --url https://codeclarity.example.com/api --org <organization id>
+  codeclarity analyze . --analyzer "Default Analyzer"
+  codeclarity results --format json
+
+Log in with an Organization token, from --token or CODECLARITY_TOKEN.`,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.CompletionOptions.DisableDefaultCmd = true
+	root.SetOut(stdout)
+	root.SetErr(stderr)
+	root.AddCommand(newVersionCmd(), newLoginCmd(), newLogoutCmd(), newAnalyzeCmd(), newResultsCmd())
+	return root
+}
+
+// Run runs the CLI with args and returns its exit code.
+func Run(args []string, stdout, stderr io.Writer) int {
+	root := newRootCmd(stdout, stderr)
+	root.SetArgs(args)
+	err := root.Execute()
+	if err == nil {
+		return 0
+	}
+	fmt.Fprintln(stderr, "Error:", err)
+	var exit *exitError
+	if errors.As(err, &exit) {
+		return exit.code
+	}
+	return 1
+}
+
+// Execute runs the CLI with the process arguments and exits.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	os.Exit(Run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-func init() {
-	rootCmd.PersistentFlags().StringVarP(&orgID, "org", "o", "", "Organization ID (overrides default)")
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "f", "", "Output format: table, json, yaml")
-	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug output")
-	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", "", "API base URL (overrides config)")
-
-	// Add subcommands
-	rootCmd.AddCommand(analyzer.AnalyzerCmd)
-	rootCmd.AddCommand(project.ProjectCmd)
-	rootCmd.AddCommand(analysis.AnalysisCmd)
-	rootCmd.AddCommand(result.ResultCmd)
-}
-
-// GetOrgID returns the organization ID from flags or config
-func GetOrgID() string {
-	if orgID != "" {
-		return orgID
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the CLI version",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "codeclarity %s\n", Version)
+			return err
+		},
 	}
-	if cfg != nil && cfg.DefaultOrgID != "" {
-		return cfg.DefaultOrgID
-	}
-	return ""
-}
-
-// GetOutputFormat returns the output format
-func GetOutputFormat() string {
-	if outputFormat != "" {
-		return outputFormat
-	}
-	if cfg != nil && cfg.OutputFormat != "" {
-		return cfg.OutputFormat
-	}
-	return "table"
-}
-
-// GetConfig returns the loaded configuration
-func GetConfig() *config.Config {
-	return cfg
 }

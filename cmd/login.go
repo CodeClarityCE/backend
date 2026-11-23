@@ -1,141 +1,73 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 
 	"codeclarity.io/internal/api"
-	"codeclarity.io/internal/auth"
-	"codeclarity.io/internal/config"
-	"codeclarity.io/internal/output"
+	"codeclarity.io/internal/session"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
-var (
-	loginEmail    string
-	loginPassword string
-)
+func newLoginCmd() *cobra.Command {
+	var s session.Session
+	cmd := &cobra.Command{
+		Use:   "login",
+		Short: "Log in with an Organization token",
+		Long: `Log in with an Organization token and store it in ~/.codeclarity/credentials.json (mode 0600).
 
-var loginAPIURL string
+The token comes from --token or CODECLARITY_TOKEN; prefer the variable, so the token stays out
+of the process list and the shell history. --url and --org default to CODECLARITY_URL and
+CODECLARITY_ORG. Instead of logging in, a pipeline can set all three variables.
 
-var loginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Authenticate with CodeClarity",
-	Long: `Authenticate with your CodeClarity account and store tokens locally.
-
-The credentials are stored securely in ~/.codeclarity/credentials.yaml
-with restricted file permissions.
-
-You can specify a custom API URL with --api-url:
-  codeclarity login --api-url https://your-instance.example.com/api
-
-For CI/CD environments, you can use the CODECLARITY_API_KEY environment
-variable instead of interactive login.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// Load config for API URL
-		cfg, err := config.Load()
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
-		}
-
-		// Override API URL if provided (local flag takes precedence over global)
-		customAPIURL := loginAPIURL
-		if customAPIURL == "" && apiURL != "" {
-			customAPIURL = apiURL
-		}
-		if customAPIURL != "" {
-			cfg.APIBaseURL = customAPIURL
-		}
-
-		// Get email
-		email := loginEmail
-		if email == "" {
-			fmt.Print("Email: ")
-			reader := bufio.NewReader(os.Stdin)
-			email, _ = reader.ReadString('\n')
-			email = strings.TrimSpace(email)
-		}
-
-		// Get password
-		password := loginPassword
-		if password == "" {
-			fmt.Print("Password: ")
-			bytePassword, err := term.ReadPassword(int(os.Stdin.Fd()))
-			if err != nil {
-				return fmt.Errorf("failed to read password: %w", err)
+  CODECLARITY_TOKEN=ccot_... codeclarity login --url https://codeclarity.example.com/api --org <organization id>`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			fill(&s.URL, session.URLEnv)
+			fill(&s.OrganizationID, session.OrgEnv)
+			fill(&s.Token, session.TokenEnv)
+			switch {
+			case s.URL == "":
+				return fmt.Errorf("no instance: pass --url or set %s", session.URLEnv)
+			case s.OrganizationID == "":
+				return fmt.Errorf("no organization: pass --org or set %s", session.OrgEnv)
+			case s.Token == "":
+				return fmt.Errorf("no Organization token: pass --token or set %s", session.TokenEnv)
 			}
-			password = string(bytePassword)
-			fmt.Println()
-		}
-
-		// Authenticate
-		client := api.NewClient(cfg.APIBaseURL)
-		resp, err := client.Authenticate(email, password)
-		if err != nil {
-			output.Error("Authentication failed: %v", err)
-			return nil
-		}
-
-		// Get user info
-		client.SetToken(resp.Token)
-		user, err := client.GetCurrentUser()
-		if err != nil {
-			output.Error("Failed to get user info: %v", err)
-			return nil
-		}
-
-		// Store tokens
-		tokens := &auth.TokenStore{
-			AccessToken:        resp.Token,
-			RefreshToken:       resp.RefreshToken,
-			TokenExpiry:        resp.TokenExpiry,
-			RefreshTokenExpiry: resp.RefreshTokenExpiry,
-			UserID:             user.ID,
-			Email:              user.Email,
-		}
-
-		if err := auth.SaveTokens(tokens); err != nil {
-			return fmt.Errorf("failed to save credentials: %w", err)
-		}
-
-		// Update config with default org and API URL
-		defaultOrgID := user.GetDefaultOrgID()
-		configChanged := false
-
-		if defaultOrgID != "" {
-			cfg.DefaultOrgID = defaultOrgID
-			configChanged = true
-		}
-
-		if customAPIURL != "" {
-			cfg.APIBaseURL = customAPIURL
-			configChanged = true
-		}
-
-		if configChanged {
-			if err := config.Save(cfg); err != nil {
-				output.Warning("Failed to save configuration: %v", err)
+			if err := api.New(s.URL, s.Token).CheckAccess(cmd.Context(), s.OrganizationID); err != nil {
+				return fmt.Errorf("the instance refused the token: %w", err)
 			}
-		}
-
-		output.Success("Logged in as %s", user.Email)
-		if customAPIURL != "" {
-			output.Info("API URL: %s", cfg.APIBaseURL)
-		}
-		if defaultOrgID != "" {
-			output.Info("Default organization: %s", defaultOrgID)
-		}
-
-		return nil
-	},
+			if err := session.Save(s); err != nil {
+				return err
+			}
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "Logged in to organization %s on %s\n", s.OrganizationID, s.URL)
+			return err
+		},
+	}
+	cmd.Flags().StringVar(&s.URL, "url", "", "API URL of the instance, such as https://codeclarity.example.com/api")
+	cmd.Flags().StringVar(&s.OrganizationID, "org", "", "id of the organization the token belongs to")
+	cmd.Flags().StringVar(&s.Token, "token", "", "Organization token (prefer "+session.TokenEnv+")")
+	return cmd
 }
 
-func init() {
-	loginCmd.Flags().StringVarP(&loginEmail, "email", "e", "", "Account email")
-	loginCmd.Flags().StringVarP(&loginPassword, "password", "p", "", "Account password (not recommended, use interactive prompt)")
-	loginCmd.Flags().StringVar(&loginAPIURL, "api-url", "", "API base URL (e.g., https://your-instance.example.com/api)")
-	rootCmd.AddCommand(loginCmd)
+// fill sets an empty flag value from the environment.
+func fill(value *string, env string) {
+	if *value == "" {
+		*value = os.Getenv(env)
+	}
+}
+
+func newLogoutCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "logout",
+		Short: "Forget the stored Organization token",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := session.Clear(); err != nil {
+				return err
+			}
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), "Logged out")
+			return err
+		},
+	}
 }

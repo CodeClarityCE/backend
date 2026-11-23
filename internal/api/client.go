@@ -1,404 +1,298 @@
+// Package api calls the CodeClarity API routes an Organization token may use.
 package api
 
 import (
 	"bytes"
-	"crypto/tls"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
-	"os"
+	"strconv"
 	"strings"
 	"time"
-
-	"codeclarity.io/internal/auth"
-	"codeclarity.io/internal/config"
 )
 
-// Client is the API client for CodeClarity
+// ChunkSize is how much of an archive one upload request carries; the API takes up to 25 MB.
+const ChunkSize = 20 << 20
+
+// Client calls one instance's API with an Organization token.
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
-	token      string
+	baseURL string
+	token   string
+	http    *http.Client
 }
 
-// NewClient creates a new API client
-func NewClient(baseURL string) *Client {
-	// Allow insecure TLS for local development
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: os.Getenv("CODECLARITY_ALLOW_INSECURE") == "true",
-		},
-	}
-
+// New returns a client for the API at baseURL (for example https://host/api).
+func New(baseURL, token string) *Client {
 	return &Client{
-		baseURL: baseURL,
-		httpClient: &http.Client{
-			Timeout:   30 * time.Second,
-			Transport: transport,
-		},
+		baseURL: strings.TrimRight(baseURL, "/"),
+		token:   token,
+		http:    &http.Client{Timeout: 2 * time.Minute},
 	}
 }
 
-// NewAuthenticatedClient creates a new authenticated API client
-func NewAuthenticatedClient() (*Client, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	client := NewClient(cfg.APIBaseURL)
-
-	token, err := auth.GetAuthToken()
-	if err != nil {
-		// Check if we need to refresh
-		if auth.NeedsRefresh() {
-			refreshToken, err := auth.GetRefreshToken()
-			if err != nil {
-				return nil, err
-			}
-			newTokens, err := client.RefreshToken(refreshToken)
-			if err != nil {
-				return nil, fmt.Errorf("failed to refresh token: %w", err)
-			}
-			// Save the new tokens
-			tokens, _ := auth.LoadTokens()
-			tokens.AccessToken = newTokens.Token
-			tokens.RefreshToken = newTokens.RefreshToken
-			tokens.TokenExpiry = newTokens.TokenExpiry
-			tokens.RefreshTokenExpiry = newTokens.RefreshTokenExpiry
-			if err := auth.SaveTokens(tokens); err != nil {
-				return nil, err
-			}
-			token = newTokens.Token
-		} else {
-			return nil, err
-		}
-	}
-
-	client.SetToken(token)
-	return client, nil
+// Error is an error answer of the API.
+type Error struct {
+	Status  int
+	Code    string
+	Message string
 }
 
-// SetToken sets the authentication token
-func (c *Client) SetToken(token string) {
-	c.token = token
+func (e *Error) Error() string {
+	switch {
+	case e.Code != "" && e.Message != "":
+		return fmt.Sprintf("%s (HTTP %d, %s)", e.Message, e.Status, e.Code)
+	case e.Message != "":
+		return fmt.Sprintf("%s (HTTP %d)", e.Message, e.Status)
+	default:
+		return fmt.Sprintf("HTTP %d", e.Status)
+	}
 }
 
-// apiResponseWrapper is used to unwrap the standard API response format
-type apiResponseWrapper struct {
-	StatusCode int             `json:"status_code"`
-	Status     string          `json:"status"`
-	Data       json.RawMessage `json:"data"`
+// IsStatus reports whether err is an API answer with that HTTP status.
+func IsStatus(err error, status int) bool {
+	var apiErr *Error
+	return errors.As(err, &apiErr) && apiErr.Status == status
 }
 
-// doRequest performs an HTTP request
-func (c *Client) doRequest(method, path string, body any, result any) error {
-	var bodyReader io.Reader
-	if body != nil {
-		jsonBody, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("failed to marshal request body: %w", err)
-		}
-		bodyReader = bytes.NewReader(jsonBody)
+// do sends one request and decodes a JSON answer into out, when out is not nil.
+func (c *Client) do(ctx context.Context, method, path string, query url.Values, body io.Reader, contentType string, out any) error {
+	target := c.baseURL + path
+	if len(query) > 0 {
+		target += "?" + query.Encode()
 	}
-
-	// Split path and query string to avoid encoding the query string
-	basePath := path
-	queryString := ""
-	if idx := strings.Index(path, "?"); idx != -1 {
-		basePath = path[:idx]
-		queryString = path[idx:]
-	}
-
-	reqURL, err := url.JoinPath(c.baseURL, basePath)
+	req, err := http.NewRequestWithContext(ctx, method, target, body)
 	if err != nil {
-		return fmt.Errorf("failed to build URL: %w", err)
+		return err
 	}
-	reqURL += queryString
-
-	req, err := http.NewRequest(method, reqURL, bodyReader)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return err
 	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
+	defer func() { _ = resp.Body.Close() }()
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
+		return err
 	}
-
 	if resp.StatusCode >= 400 {
-		var apiErr APIError
-		if err := json.Unmarshal(respBody, &apiErr); err != nil {
-			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+		var answer struct {
+			Code    string `json:"error_code"`
+			Message string `json:"error_message"`
 		}
-		apiErr.StatusCode = resp.StatusCode
-		return fmt.Errorf("API error: %s", apiErr.String())
+		_ = json.Unmarshal(data, &answer)
+		return &Error{Status: resp.StatusCode, Code: answer.Code, Message: answer.Message}
 	}
-
-	if result != nil && len(respBody) > 0 {
-		// Check if response is wrapped in standard API format {"status_code":..., "data":...}
-		var wrapper apiResponseWrapper
-		if err := json.Unmarshal(respBody, &wrapper); err == nil && wrapper.Data != nil {
-			// Check if data is an array (paginated response) or object (single item)
-			// For paginated responses, the wrapper fields are at the same level as pagination
-			// For single item responses, data contains the actual item
-			trimmed := bytes.TrimSpace(wrapper.Data)
-			if len(trimmed) > 0 && trimmed[0] == '[' {
-				// Data is an array - this is a paginated response, parse directly
-				if err := json.Unmarshal(respBody, result); err != nil {
-					return fmt.Errorf("failed to parse paginated response: %w", err)
-				}
-			} else {
-				// Data is an object - unwrap it
-				if err := json.Unmarshal(wrapper.Data, result); err != nil {
-					return fmt.Errorf("failed to parse response data: %w", err)
-				}
-			}
-		} else {
-			// Try direct parsing (for responses without wrapper)
-			if err := json.Unmarshal(respBody, result); err != nil {
-				return fmt.Errorf("failed to parse response: %w", err)
-			}
-		}
+	if out == nil || len(data) == 0 {
+		return nil
 	}
-
+	if err := json.Unmarshal(data, out); err != nil {
+		return fmt.Errorf("%s %s: unexpected answer: %w", method, path, err)
+	}
 	return nil
 }
 
-// Auth endpoints
-
-// Authenticate authenticates with email and password
-func (c *Client) Authenticate(email, password string) (*AuthResponse, error) {
-	req := AuthRequest{
-		Email:    email,
-		Password: password,
+func (c *Client) postJSON(ctx context.Context, path string, in, out any) error {
+	body, err := json.Marshal(in)
+	if err != nil {
+		return err
 	}
-
-	var resp AuthResponse
-	if err := c.doRequest("POST", "/auth/authenticate", req, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
+	return c.do(ctx, http.MethodPost, path, nil, bytes.NewReader(body), "application/json", out)
 }
 
-// RefreshToken refreshes the access token
-func (c *Client) RefreshToken(refreshToken string) (*AuthResponse, error) {
-	req := RefreshRequest{
-		RefreshToken: refreshToken,
+func orgPath(org string, parts ...string) string {
+	escaped := []string{"/org", url.PathEscape(org)}
+	for _, p := range parts {
+		escaped = append(escaped, url.PathEscape(p))
 	}
-
-	var resp AuthResponse
-	if err := c.doRequest("POST", "/auth/refresh", req, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
+	return strings.Join(escaped, "/")
 }
 
-// GetCurrentUser returns the current authenticated user
-func (c *Client) GetCurrentUser() (*User, error) {
-	var user User
-	if err := c.doRequest("GET", "/auth/user", nil, &user); err != nil {
-		return nil, err
-	}
-	return &user, nil
+// page is one page of a paginated answer.
+type page[T any] struct {
+	Data       []T `json:"data"`
+	Page       int `json:"page"`
+	TotalPages int `json:"total_pages"`
 }
 
-// Analyzer endpoints
-
-// ListAnalyzers lists analyzers for an organization
-func (c *Client) ListAnalyzers(orgID string, page, perPage int) (*PaginatedResponse[Analyzer], error) {
-	path := fmt.Sprintf("/org/%s/analyzers?page=%d&entries_per_page=%d", orgID, page, perPage)
-
-	var resp PaginatedResponse[Analyzer]
-	if err := c.doRequest("GET", path, nil, &resp); err != nil {
-		return nil, err
+// all reads every page of a paginated route.
+func all[T any](ctx context.Context, c *Client, path string, query url.Values) ([]T, error) {
+	var items []T
+	for n := 0; ; n++ {
+		q := url.Values{}
+		for k, v := range query {
+			q[k] = v
+		}
+		q.Set("page", strconv.Itoa(n))
+		q.Set("entries_per_page", "100")
+		var p page[T]
+		if err := c.do(ctx, http.MethodGet, path, q, nil, "", &p); err != nil {
+			return nil, err
+		}
+		items = append(items, p.Data...)
+		if n+1 >= p.TotalPages {
+			return items, nil
+		}
 	}
-
-	return &resp, nil
 }
 
-// GetAnalyzer gets an analyzer by ID
-func (c *Client) GetAnalyzer(orgID, analyzerID string) (*Analyzer, error) {
-	path := fmt.Sprintf("/org/%s/analyzers/%s", orgID, analyzerID)
-
-	var resp SingleResponse[Analyzer]
-	if err := c.doRequest("GET", path, nil, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp.Data, nil
+// Stage is one plugin of an analyzer.
+type Stage struct {
+	Name   string         `json:"name"`
+	Config map[string]any `json:"config"`
 }
 
-// CreateAnalyzer creates a new analyzer
-func (c *Client) CreateAnalyzer(orgID string, req AnalyzerCreateRequest) (string, error) {
-	path := fmt.Sprintf("/org/%s/analyzers", orgID)
-
-	var resp CreatedResponse
-	if err := c.doRequest("POST", path, req, &resp); err != nil {
-		return "", err
-	}
-
-	return resp.ID, nil
+// Analyzer is a named set of plugins an analysis runs.
+type Analyzer struct {
+	ID    string    `json:"id"`
+	Name  string    `json:"name"`
+	Steps [][]Stage `json:"steps"`
 }
 
-// Project endpoints
-
-// ListProjects lists projects for an organization
-func (c *Client) ListProjects(orgID string, page, perPage int, search string) (*PaginatedResponse[Project], error) {
-	path := fmt.Sprintf("/org/%s/projects?page=%d&entries_per_page=%d", orgID, page, perPage)
-	if search != "" {
-		path += "&search_key=" + url.QueryEscape(search)
-	}
-
-	var resp PaginatedResponse[Project]
-	if err := c.doRequest("GET", path, nil, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
+// CheckAccess asks for one analyzer, which any token of the organization may read.
+func (c *Client) CheckAccess(ctx context.Context, org string) error {
+	q := url.Values{"entries_per_page": {"1"}}
+	return c.do(ctx, http.MethodGet, orgPath(org, "analyzers"), q, nil, "", &page[Analyzer]{})
 }
 
-// GetProject gets a project by ID
-func (c *Client) GetProject(orgID, projectID string) (*Project, error) {
-	path := fmt.Sprintf("/org/%s/projects/%s", orgID, projectID)
-
-	var resp SingleResponse[Project]
-	if err := c.doRequest("GET", path, nil, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp.Data, nil
+// Analyzers lists the analyzers the organization can run.
+func (c *Client) Analyzers(ctx context.Context, org string) ([]Analyzer, error) {
+	return all[Analyzer](ctx, c, orgPath(org, "analyzers"), nil)
 }
 
-// ImportProject imports a new project
-func (c *Client) ImportProject(orgID string, req ProjectImportRequest) (string, error) {
-	path := fmt.Sprintf("/org/%s/projects", orgID)
-
-	var resp CreatedResponse
-	if err := c.doRequest("POST", path, req, &resp); err != nil {
-		return "", err
-	}
-
-	return resp.ID, nil
+type created struct {
+	ID string `json:"id"`
 }
 
-// Analysis endpoints
-
-// ListAnalyses lists analyses for a project
-func (c *Client) ListAnalyses(orgID, projectID string, page, perPage int) (*PaginatedResponse[Analysis], error) {
-	path := fmt.Sprintf("/org/%s/projects/%s/analyses?page=%d&entries_per_page=%d", orgID, projectID, page, perPage)
-
-	var resp PaginatedResponse[Analysis]
-	if err := c.doRequest("GET", path, nil, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
+// CreateUploadProject creates a project whose source is an uploaded archive.
+func (c *Client) CreateUploadProject(ctx context.Context, org, name, description string) (string, error) {
+	var out created
+	err := c.postJSON(ctx, orgPath(org, "projects"), map[string]string{"name": name, "description": description}, &out)
+	return out.ID, err
 }
 
-// GetAnalysis gets an analysis by ID
-func (c *Client) GetAnalysis(orgID, projectID, analysisID string) (*Analysis, error) {
-	path := fmt.Sprintf("/org/%s/projects/%s/analyses/%s", orgID, projectID, analysisID)
-
-	var resp SingleResponse[Analysis]
-	if err := c.doRequest("GET", path, nil, &resp); err != nil {
-		return nil, err
+// UploadArchive sends an archive to a project in chunks, as the web app does.
+func (c *Client) UploadArchive(ctx context.Context, org, project, fileName string, archive []byte) error {
+	for id, start := 0, 0; ; id, start = id+1, start+ChunkSize {
+		end := min(start+ChunkSize, len(archive))
+		last := end == len(archive)
+		if err := c.uploadChunk(ctx, org, project, fileName, archive[start:end], id, last); err != nil {
+			return err
+		}
+		if last {
+			return nil
+		}
 	}
-
-	return &resp.Data, nil
 }
 
-// StartAnalysis starts a new analysis
-func (c *Client) StartAnalysis(orgID, projectID string, req AnalysisCreateRequest) (string, error) {
-	path := fmt.Sprintf("/org/%s/projects/%s/analyses", orgID, projectID)
-
-	var resp CreatedResponse
-	if err := c.doRequest("POST", path, req, &resp); err != nil {
-		return "", err
+func (c *Client) uploadChunk(ctx context.Context, org, project, fileName string, chunk []byte, id int, last bool) error {
+	sum := sha256.Sum256(chunk)
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	fields := [][2]string{
+		{"type", "source"},
+		{"file_name", fileName},
+		{"chunk", "true"},
+		{"id", strconv.Itoa(id)},
+		{"last", strconv.FormatBool(last)},
+		{"hash", hex.EncodeToString(sum[:])},
 	}
-
-	return resp.ID, nil
+	for _, f := range fields {
+		if err := form.WriteField(f[0], f[1]); err != nil {
+			return err
+		}
+	}
+	part, err := form.CreateFormFile("file", "blob")
+	if err != nil {
+		return err
+	}
+	if _, err := part.Write(chunk); err != nil {
+		return err
+	}
+	if err := form.Close(); err != nil {
+		return err
+	}
+	return c.do(ctx, http.MethodPatch, orgPath(org, "file", project, "upload"), nil, &body, form.FormDataContentType(), nil)
 }
 
-// Results endpoints
-
-// GetVulnerabilityStats gets vulnerability statistics for an analysis
-func (c *Client) GetVulnerabilityStats(orgID, projectID, analysisID, workspace string) (*VulnerabilityStats, error) {
-	// Default workspace to "." (root) if not specified
-	if workspace == "" {
-		workspace = "."
-	}
-	path := fmt.Sprintf("/org/%s/projects/%s/analysis/%s/vulnerabilities/stats?workspace=%s", orgID, projectID, analysisID, url.QueryEscape(workspace))
-
-	// doRequest already unwraps the "data" field, so parse directly into stats
-	var resp VulnerabilityStats
-	if err := c.doRequest("GET", path, nil, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
+// Project is a project of the organization: an upload (type FILE) or linked from GitHub or GitLab.
+type Project struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	DefaultBranch string `json:"default_branch"`
 }
 
-// GetSBOMStats gets SBOM statistics for an analysis
-func (c *Client) GetSBOMStats(orgID, projectID, analysisID, workspace string) (*SBOMStats, error) {
-	// Default workspace to "." (root) if not specified
-	if workspace == "" {
-		workspace = "."
+// Project returns one project of the organization.
+func (c *Client) Project(ctx context.Context, org, project string) (Project, error) {
+	var out struct {
+		Data Project `json:"data"`
 	}
-	path := fmt.Sprintf("/org/%s/projects/%s/analysis/%s/sbom/stats?workspace=%s", orgID, projectID, analysisID, url.QueryEscape(workspace))
-
-	// doRequest already unwraps the "data" field, so parse directly into stats
-	var resp SBOMStats
-	if err := c.doRequest("GET", path, nil, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
+	err := c.do(ctx, http.MethodGet, orgPath(org, "projects", project), nil, nil, "", &out)
+	return out.Data, err
 }
 
-// GetLicenseStats gets license statistics for an analysis
-func (c *Client) GetLicenseStats(orgID, projectID, analysisID, workspace string) (*LicenseStats, error) {
-	path := fmt.Sprintf("/org/%s/projects/%s/analysis/%s/licenses/stats", orgID, projectID, analysisID)
-	if workspace != "" {
-		path += "?workspace=" + url.QueryEscape(workspace)
-	}
-
-	var resp SingleResponse[LicenseStats]
-	if err := c.doRequest("GET", path, nil, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp.Data, nil
+// AnalysisStart asks for an analysis of a project.
+type AnalysisStart struct {
+	AnalyzerID string                    `json:"analyzer_id"`
+	Branch     string                    `json:"branch"`
+	Config     map[string]map[string]any `json:"config"`
 }
 
-// GetVulnerabilities gets the list of vulnerabilities for an analysis
-func (c *Client) GetVulnerabilities(orgID, projectID, analysisID, workspace string, page, perPage int) (*PaginatedResponse[Vulnerability], error) {
-	path := fmt.Sprintf("/org/%s/projects/%s/analysis/%s/vulnerabilities?page=%d&entries_per_page=%d", orgID, projectID, analysisID, page, perPage)
-	if workspace != "" {
-		path += "&workspace=" + url.QueryEscape(workspace)
-	}
+// StartAnalysis starts an analysis and returns its id.
+func (c *Client) StartAnalysis(ctx context.Context, org, project string, start AnalysisStart) (string, error) {
+	var out created
+	err := c.postJSON(ctx, orgPath(org, "projects", project, "analyses"), start, &out)
+	return out.ID, err
+}
 
-	var resp PaginatedResponse[Vulnerability]
-	if err := c.doRequest("GET", path, nil, &resp); err != nil {
-		return nil, err
-	}
+// Analysis is an analysis and how far it got.
+type Analysis struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
 
-	return &resp, nil
+// Analysis returns an analysis of a project.
+func (c *Client) Analysis(ctx context.Context, org, project, analysis string) (Analysis, error) {
+	var out struct {
+		Data Analysis `json:"data"`
+	}
+	err := c.do(ctx, http.MethodGet, orgPath(org, "projects", project, "analyses", analysis), nil, nil, "", &out)
+	return out.Data, err
+}
+
+// Severity is a finding's score and class, such as CRITICAL.
+type Severity struct {
+	Score float64 `json:"Severity"`
+	Class string  `json:"SeverityClass"`
+}
+
+// Affected is a dependency a finding affects.
+type Affected struct {
+	Dependency string `json:"AffectedDependency"`
+	Version    string `json:"AffectedVersion"`
+}
+
+// Finding is one vulnerability of an analysis, with every dependency it affects.
+type Finding struct {
+	Vulnerability string     `json:"Vulnerability"`
+	Severity      Severity   `json:"Severity"`
+	Affected      []Affected `json:"Affected"`
+	Description   string     `json:"Description"`
+}
+
+// Findings lists every vulnerability an analysis found in a workspace.
+func (c *Client) Findings(ctx context.Context, org, project, analysis, workspace string) ([]Finding, error) {
+	path := orgPath(org, "projects", project, "analysis", analysis, "vulnerabilities")
+	return all[Finding](ctx, c, path, url.Values{"workspace": {workspace}})
 }
