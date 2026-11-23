@@ -15,9 +15,9 @@ concurrency:
 
 jobs:
   # Workspace mode against the submodules; golangci-lint alone runs with GOWORK=off,
-  # since the CLI imports no workspace module. On the spec branch until the inputs reach v1.
+  # since the CLI imports no workspace module.
   checks:
-    uses: CodeClarityCE/.github/.github/workflows/go-checks.yml@spec/312-beta
+    uses: CodeClarityCE/.github/.github/workflows/go-checks.yml@v1
     permissions:
       contents: read
     with:
