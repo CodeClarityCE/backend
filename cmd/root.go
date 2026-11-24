@@ -1,4 +1,5 @@
-// Package cmd holds the CLI commands a CI pipeline runs: login, logout, version, analyze and results.
+// Package cmd holds the CLI commands: login, logout, version, analyze and results for a CI pipeline,
+// and analyses, licenses, explain, fix-next and vuln to read results with a read token.
 package cmd
 
 import (
@@ -34,6 +35,10 @@ func newRootCmd(stdout, stderr io.Writer) *cobra.Command {
   codeclarity analyze . --analyzer "Default Analyzer"
   codeclarity results --format json
 
+Read more of the results, with a read token:
+
+  codeclarity analyses | licenses | explain <name@version> | fix-next | vuln <id>
+
 Log in with an Organization token, from --token or CODECLARITY_TOKEN.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -41,7 +46,8 @@ Log in with an Organization token, from --token or CODECLARITY_TOKEN.`,
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.SetOut(stdout)
 	root.SetErr(stderr)
-	root.AddCommand(newVersionCmd(), newLoginCmd(), newLogoutCmd(), newAnalyzeCmd(), newResultsCmd())
+	root.AddCommand(newVersionCmd(), newLoginCmd(), newLogoutCmd(), newAnalyzeCmd(), newResultsCmd(),
+		newAnalysesCmd(), newLicensesCmd(), newExplainCmd(), newFixNextCmd(), newVulnCmd())
 	return root
 }
 

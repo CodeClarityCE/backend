@@ -39,6 +39,9 @@ type fakeAPI struct {
 	uploaded      map[string][]byte
 	startBody     map[string]any
 	analysisPolls int
+	// What the read commands get: licenses two per page, and the query fix-next was asked with.
+	licenses     []map[string]any
+	fixNextQuery string
 }
 
 func newFakeAPI(t *testing.T) *fakeAPI {
@@ -109,6 +112,16 @@ func (f *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 		reply(w, 200, map[string]any{"data": map[string]any{"id": "analysis-1", "status": status}})
 	case r.Method == http.MethodGet && (path == "/projects/project-1/analysis/analysis-1/vulnerabilities" || path == "/projects/"+linkedProject+"/analysis/analysis-1/vulnerabilities"):
 		f.replyFindings(w, r)
+	case r.Method == http.MethodGet && path == "/projects/project-1/analyses":
+		f.replyAnalyses(w, r)
+	case r.Method == http.MethodGet && path == "/projects/project-1/analysis/analysis-1/licenses":
+		f.replyLicenses(w, r)
+	case r.Method == http.MethodGet && strings.HasPrefix(path, "/projects/project-1/analysis/analysis-1/sbom/dependency"):
+		f.replyDependency(w, r, strings.TrimPrefix(path, "/projects/project-1/analysis/analysis-1/sbom/dependency"))
+	case r.Method == http.MethodGet && path == "/remediations/fix-next":
+		f.replyFixNext(w, r)
+	case r.Method == http.MethodGet && strings.HasPrefix(path, "/vulnerabilities/"):
+		f.replyVulnerability(w, strings.TrimPrefix(path, "/vulnerabilities/"))
 	case r.Method == http.MethodGet && strings.HasPrefix(path, "/projects/project-1/analysis/analysis-1/sbom"):
 		f.replySBOM(w, r, strings.TrimPrefix(path, "/projects/project-1/analysis/analysis-1/sbom"))
 	default:
