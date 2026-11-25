@@ -83,24 +83,16 @@ func results(cmd *cobra.Command, o resultsOptions) error {
 			return err
 		}
 	}
-	target := session.Analysis{ProjectID: o.project, AnalysisID: o.analysis}
-	if target.ProjectID == "" || target.AnalysisID == "" {
-		if target.ProjectID != "" || target.AnalysisID != "" {
-			return fmt.Errorf("pass both --project and --analysis, or neither")
-		}
-		if target, err = session.LastAnalysis(); err != nil {
-			return err
-		}
+	target, err := analysisTarget(o.project, o.analysis)
+	if err != nil {
+		return err
 	}
 
 	ctx := cmd.Context()
 	client := api.New(s.URL, s.Token)
-	analysis, err := client.Analysis(ctx, s.OrganizationID, target.ProjectID, target.AnalysisID)
+	analysis, err := endedAnalysis(cmd, client, s.OrganizationID, target)
 	if err != nil {
-		return fmt.Errorf("reading analysis %s: %w", target.AnalysisID, err)
-	}
-	if !finished(analysis.Status) {
-		return fmt.Errorf("analysis %s is %s, so it has no results yet", target.AnalysisID, analysis.Status)
+		return err
 	}
 	findings, err := client.Findings(ctx, s.OrganizationID, target.ProjectID, target.AnalysisID, o.workspace)
 	if err != nil {
