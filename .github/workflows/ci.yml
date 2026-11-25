@@ -22,7 +22,6 @@ jobs:
       contents: read
     with:
       submodules: recursive
-      golangci-lint: true
       golangci-lint-gowork-off: true
 
   lint:
