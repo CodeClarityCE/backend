@@ -55,6 +55,19 @@ codeclarity results --format sarif --fail-on high > codeclarity.sarif
   with code 3 when one is at or above that severity. Every other error exits with code 1.
 - An instance with a private CA: point `SSL_CERT_FILE` at the CA certificate.
 
+A token of scope `read` is enough for `results` and for these commands, which print the API's answer as JSON:
+
+```sh
+codeclarity analyses --project <id>          # the project's analyses: status, branch, tag, commit, dates
+codeclarity licenses --workspace .           # the licenses of an analysis and the dependencies under each
+codeclarity explain lodash@4.17.20           # one dependency and the graph that leads to it
+codeclarity fix-next --limit 5               # the organization's upgrades that fix the most first
+codeclarity vuln CVE-2021-23337              # a vulnerability and the organization's projects it affects
+```
+
+`analyses` defaults to the last analysis's project; `licenses` and `explain` to the last analysis, or take
+`--project` and `--analysis`.
+
 ## Contributing
 
 If you'd like to contribute code or documentation, please see [CONTRIBUTING.md](https://github.com/CodeClarityCE/codeclarity-dev/blob/main/CONTRIBUTING.md) for guidelines on how to do so.
